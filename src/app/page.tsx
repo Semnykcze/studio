@@ -13,7 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch"; // Added Switch import
+import { Switch } from "@/components/ui/switch";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
@@ -43,7 +43,7 @@ interface HistoryEntry {
     maxWords: number;
     outputLanguage: string;
     photoFileName?: string;
-    allowNsfw: boolean; // Added allowNsfw to history
+    allowNsfw: boolean;
   };
   generatedPrompt: string;
 }
@@ -69,7 +69,7 @@ export default function VisionaryPrompterPage() {
   const [minWords, setMinWords] = useState<number>(25);
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
-  const [allowNsfw, setAllowNsfw] = useState<boolean>(false); // State for NSFW toggle
+  const [allowNsfw, setAllowNsfw] = useState<boolean>(false); 
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
@@ -275,7 +275,7 @@ export default function VisionaryPrompterPage() {
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
         outputLanguage: selectedLanguage,
-        allowNsfw: allowNsfw, // Pass NSFW state
+        allowNsfw: allowNsfw,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
@@ -297,7 +297,7 @@ export default function VisionaryPrompterPage() {
           maxWords: maxWords,
           outputLanguage: selectedLanguage,
           photoFileName: imageFile.name,
-          allowNsfw: allowNsfw, // Save NSFW state to history
+          allowNsfw: allowNsfw,
         },
         generatedPrompt: result.prompt,
       };
@@ -444,7 +444,7 @@ export default function VisionaryPrompterPage() {
     setMinWords(entry.params.minWords);
     setMaxWords(entry.params.maxWords);
     setSelectedLanguage(entry.params.outputLanguage);
-    setAllowNsfw(typeof entry.params.allowNsfw === 'boolean' ? entry.params.allowNsfw : false); // Load NSFW state
+    setAllowNsfw(typeof entry.params.allowNsfw === 'boolean' ? entry.params.allowNsfw : false);
     setGeneratedPrompt(entry.generatedPrompt);
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
@@ -613,6 +613,18 @@ export default function VisionaryPrompterPage() {
                     />
                     <p className="text-xs text-muted-foreground">Adjust min & max word count. Overall range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
                 </div>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch
+                    id="allow-nsfw-config-switch"
+                    checked={allowNsfw}
+                    onCheckedChange={setAllowNsfw}
+                    disabled={anyLoading}
+                    aria-label="Toggle to allow potentially NSFW content in prompts"
+                  />
+                  <Label htmlFor="allow-nsfw-config-switch" className="text-sm text-muted-foreground cursor-pointer">
+                    Allow Potentially NSFW Content
+                  </Label>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="p-6 bg-muted/30 border-t border-border">
@@ -647,18 +659,6 @@ export default function VisionaryPrompterPage() {
                     <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
                     </div>
                 )}
-                <div className="flex items-center space-x-2 mb-3">
-                  <Switch
-                    id="allow-nsfw-switch"
-                    checked={allowNsfw}
-                    onCheckedChange={setAllowNsfw}
-                    disabled={anyLoading}
-                    aria-label="Toggle to allow potentially NSFW content in prompts"
-                  />
-                  <Label htmlFor="allow-nsfw-switch" className="text-sm text-muted-foreground cursor-pointer">
-                    Allow Potentially NSFW Content
-                  </Label>
-                </div>
                 <div className="mb-3 flex items-center justify-end space-x-1.5 border border-input rounded-md p-1 bg-muted/30">
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Magic Enhance Prompt">
                         {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Magic</span>
@@ -858,3 +858,5 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
+    
