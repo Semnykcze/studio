@@ -17,7 +17,7 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -25,7 +25,7 @@ type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 interface HistoryEntry {
   id: string;
   timestamp: string;
-  imagePreviewUrl?: string | null;
+  imagePreviewUrl?: string | null; // Kept for in-memory display
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
@@ -61,12 +61,18 @@ export default function VisionaryPrompterPage() {
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
-  const [credits, setCredits] = useState<number | null>(null);
+  
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
+  
+  const [isEditingSessionId, setIsEditingSessionId] = useState<boolean>(false);
+  const [newSessionIdInput, setNewSessionIdInput] = useState<string>("");
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Effect for initializing sessionId on mount
   useEffect(() => {
     let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
     if (!currentSessionId) {
@@ -74,8 +80,13 @@ export default function VisionaryPrompterPage() {
       localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, currentSessionId);
     }
     setSessionId(currentSessionId);
+  }, []);
 
-    const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${currentSessionId}`;
+  // Effect for loading/initializing credits when sessionId changes
+  useEffect(() => {
+    if (!sessionId) return; // Don't run if sessionId is not yet set
+
+    const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
     try {
       const storedCredits = localStorage.getItem(creditsStorageKey);
       if (storedCredits === null) {
@@ -84,6 +95,7 @@ export default function VisionaryPrompterPage() {
       } else {
         const parsedCredits = parseInt(storedCredits, 10);
         if (isNaN(parsedCredits)) {
+            console.warn(`Invalid credits found in localStorage for ${creditsStorageKey}, resetting.`);
             setCredits(INITIAL_CREDITS);
             localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
         } else {
@@ -96,26 +108,33 @@ export default function VisionaryPrompterPage() {
       toast({
         variant: "destructive",
         title: "Credit System Error",
-        description: "Could not load credits from local storage. Using default.",
+        description: "Could not load credits. Using default or previously loaded.",
       });
     }
-  }, [toast]);
+  }, [sessionId, toast]);
 
 
   useEffect(() => {
     try {
       const storedHistoryJson = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
       if (storedHistoryJson) {
+        // Parse and assume no imagePreviewUrl, as it's not stored
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
+        // Map to HistoryEntry[], adding imagePreviewUrl as null
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
-          imagePreviewUrl: null,
+          imagePreviewUrl: null, // Explicitly set to null
         }));
         setGenerationHistory(historyWithPlaceholders);
       }
     } catch (error) {
       console.error("Error loading history from localStorage:", error);
-      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
+      // Attempt to clear corrupted history
+      try {
+        localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
+      } catch (removeError) {
+        console.error("Failed to remove corrupted history from localStorage:", removeError);
+      }
       toast({
         variant: "destructive",
         title: "Failed to load history",
@@ -125,25 +144,39 @@ export default function VisionaryPrompterPage() {
   }, [toast]);
 
   useEffect(() => {
+    // Create a version of history without imagePreviewUrl for storage
     const historyToStore = generationHistory.map(entry => {
-      const { imagePreviewUrl, ...rest } = entry;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { imagePreviewUrl, ...rest } = entry; // Destructure to omit imagePreviewUrl
       return rest;
     });
+
     try {
-      if (generationHistory.length > 0) {
+      if (historyToStore.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
       } else {
+        // If history is empty, explicitly remove it from localStorage
+        // This check ensures we don't try to remove if it wasn't there, though removeItem is safe
         if (localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY)) {
           localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
         }
       }
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to save history",
-        description: "Could not save generation history. LocalStorage quota might be exceeded.",
-      });
+      // Check if it's a quota error
+      if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22)) {
+        toast({
+          variant: "destructive",
+          title: "Failed to save history",
+          description: "LocalStorage quota exceeded. Please clear some space or reduce history items.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to save history",
+          description: "Could not save generation history due to an unexpected error.",
+        });
+      }
     }
   }, [generationHistory, toast]);
 
@@ -162,7 +195,7 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) {
+      if (file.size > 4 * 1024 * 1024) { // 4MB limit
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -185,7 +218,7 @@ export default function VisionaryPrompterPage() {
         setUploadedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      setGeneratedPrompt('');
+      setGeneratedPrompt(''); // Clear previous prompt
     }
   };
 
@@ -194,7 +227,7 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first." });
       return;
     }
-    if (!sessionId) {
+     if (sessionId === null) {
       toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
       return;
     }
@@ -225,7 +258,7 @@ export default function VisionaryPrompterPage() {
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage,
+        imagePreviewUrl: uploadedImage, // Keep for current session display
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
@@ -264,10 +297,10 @@ export default function VisionaryPrompterPage() {
     try {
       const input: MagicPromptInput = {
         originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage,
+        promptLanguage: selectedLanguage, // Assuming magic prompt should be in the current output language
       };
       const result = await magicPrompt(input);
-      setGeneratedPrompt(result.magicPrompt);
+      setGeneratedPrompt(result.magicPrompt); // Update the main prompt area
       toast({ title: "Prompt enhanced!" });
     } catch (error) {
       console.error("Error enhancing prompt:", error);
@@ -286,10 +319,10 @@ export default function VisionaryPrompterPage() {
     try {
       const input: TranslatePromptInput = {
         originalPrompt: generatedPrompt,
-        targetLanguage: selectedLanguage,
+        targetLanguage: selectedLanguage, // Translate to the currently selected output language
       };
       const result = await translatePrompt(input);
-      setGeneratedPrompt(result.translatedPrompt);
+      setGeneratedPrompt(result.translatedPrompt); // Update the main prompt area
       toast({ title: `Prompt translated to ${selectedLanguage}!`});
     } catch (error) {
       console.error("Error translating prompt:", error);
@@ -304,7 +337,7 @@ export default function VisionaryPrompterPage() {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (!uniqueId) {
+        if (!uniqueId) { // Only set main copy status if not from history item
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
         }
@@ -322,17 +355,21 @@ export default function VisionaryPrompterPage() {
       localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
     } catch (error) {
        console.error("Error clearing history from localStorage:", error);
+       // Optionally notify user of this specific error if deemed necessary
     }
     toast({ title: "Generation history cleared." });
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
+    // Set image preview if available (will be for current session items, null for localStorage reloaded)
     if (entry.imagePreviewUrl) {
       setUploadedImage(entry.imagePreviewUrl);
     } else {
+      // If no imagePreviewUrl, clear the current image preview
       setUploadedImage(null);
     }
-    setImageFile(null);
+    // We don't store the File object, so imageFile is always null when loading from history
+    setImageFile(null); 
 
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -340,16 +377,34 @@ export default function VisionaryPrompterPage() {
     setSelectedLanguage(entry.params.outputLanguage);
     setGeneratedPrompt(entry.generatedPrompt);
 
+    // Provide feedback to the user
     if (entry.imagePreviewUrl) {
         toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
     } else {
         toast({
             title: "Settings loaded from history",
             description: `${entry.params.photoFileName ? `Original image: ${entry.params.photoFileName}. ` : ''}Image data is not stored in history. Please re-upload the image if you want to generate a new prompt with it.`,
-            duration: 5000,
+            duration: 5000, // Longer duration for important info
         });
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSessionIdChange = () => {
+    if (newSessionIdInput.trim() === "") {
+      toast({ variant: "destructive", title: "Invalid Session ID", description: "Session ID cannot be empty." });
+      return;
+    }
+    const oldSessionId = sessionId;
+    const newId = newSessionIdInput.trim();
+    
+    localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
+    setSessionId(newId); // This will trigger the useEffect for loading/initializing credits for the new sessionId
+    
+    setIsEditingSessionId(false);
+    setNewSessionIdInput(""); // Clear input field
+
+    toast({ title: "Session ID Changed", description: `Switched from ${oldSessionId || 'N/A'} to ${newId}. Credits for the new session will be loaded.` });
   };
 
 
@@ -634,7 +689,7 @@ export default function VisionaryPrompterPage() {
                       </Button>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)}>
-                      <DownloadCloud className="mr-2 h-3 w-3 md:h-4 md:w-4" /> Load these settings & prompt
+                      <DownloadCloud className="mr-2 h-3 w-3 md:h-4 md:h-4" /> Load these settings & prompt
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
@@ -646,9 +701,46 @@ export default function VisionaryPrompterPage() {
 
       <footer className="mt-12 text-center text-xs md:text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
-        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId}</p>}
+        {sessionId && !isEditingSessionId && (
+          <div className="text-xs mt-1">
+            Session ID:{" "}
+            <Button
+              variant="link"
+              className="p-0 h-auto text-xs text-primary hover:underline"
+              onClick={() => {
+                setNewSessionIdInput(sessionId);
+                setIsEditingSessionId(true);
+              }}
+              title="Edit Session ID"
+            >
+              {sessionId} <Edit3 className="ml-1 h-3 w-3" />
+            </Button>
+          </div>
+        )}
+        {isEditingSessionId && sessionId && (
+          <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <Label htmlFor="session-id-input" className="text-xs sr-only">New Session ID:</Label>
+            <Input
+              id="session-id-input"
+              type="text"
+              value={newSessionIdInput}
+              onChange={(e) => setNewSessionIdInput(e.target.value)}
+              placeholder="Enter new Session ID"
+              className="text-xs h-8 w-full max-w-xs sm:w-auto"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }}
+            />
+            <div className="flex gap-2 mt-1 sm:mt-0">
+              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs">
+                Set ID
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </footer>
     </div>
   );
 }
-    
+
