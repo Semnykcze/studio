@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { getUserSessions, adminUpdateUserCredits, type UserSessionData, searchUserSessionById } from '@/app/admin/actions';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { RefreshCw, Edit3, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Edit3, Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,9 +21,10 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<UserSessionData | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [firebaseConfigError, setFirebaseConfigError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [lastVisibleDoc, setLastVisibleDoc] = useState<UserSessionData | null | undefined>(undefined); // undefined initially, null if no more pages
+  const [lastVisibleDoc, setLastVisibleDoc] = useState<UserSessionData | null | undefined>(undefined);
   const [pageHistory, setPageHistory] = useState<(UserSessionData | null | undefined)[]>([undefined]);
 
 
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
 
   const fetchSessions = useCallback(async (lastDoc?: UserSessionData | null) => {
     setIsLoading(true);
+    setFirebaseConfigError(null); // Reset on new attempt
     try {
       const { sessions: fetchedSessions, newLastVisibleDoc } = await getUserSessions(ITEMS_PER_PAGE, lastDoc);
       setSessions(fetchedSessions);
@@ -38,7 +40,11 @@ export default function AdminDashboard() {
       setSearchResult(null); 
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not fetch user sessions." });
+      if (error instanceof Error && error.message.includes("Firebase is not configured")) {
+        setFirebaseConfigError(error.message);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: error instanceof Error ? error.message : "Could not fetch user sessions." });
+      }
       setSessions([]);
     } finally {
       setIsLoading(false);
@@ -46,8 +52,12 @@ export default function AdminDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    fetchSessions(pageHistory[currentPage -1]);
-  }, [fetchSessions, currentPage, pageHistory]);
+    if (!firebaseConfigError) { // Don't fetch if there's a known config error
+        fetchSessions(pageHistory[currentPage -1]);
+    } else {
+        setIsLoading(false); // Ensure loading is false if we skip fetching
+    }
+  }, [fetchSessions, currentPage, pageHistory, firebaseConfigError]);
 
   const handleNextPage = () => {
     if (lastVisibleDoc) {
@@ -69,6 +79,10 @@ export default function AdminDashboard() {
   };
 
   const handleUpdateCredits = async (sessionId: string) => {
+    if (firebaseConfigError) {
+        toast({ variant: "destructive", title: "Configuration Error", description: "Cannot update credits. Firebase is not configured."});
+        return;
+    }
     const newCreditsStr = editingCredits[sessionId];
     if (newCreditsStr === undefined || newCreditsStr.trim() === '') {
       toast({ variant: "destructive", title: "Invalid Input", description: "Credit value cannot be empty." });
@@ -94,15 +108,23 @@ export default function AdminDashboard() {
       toast({ title: "Success", description: `Credits for session ${sessionId.substring(0,6)}... updated to ${newCredits}.` });
     } catch (error) {
       console.error("Failed to update credits:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not update credits." });
+      if (error instanceof Error && error.message.includes("Firebase is not configured")) {
+        setFirebaseConfigError(error.message);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Could not update credits." });
+      }
     }
   };
   
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (firebaseConfigError) {
+        toast({ variant: "destructive", title: "Configuration Error", description: "Cannot search. Firebase is not configured."});
+        return;
+    }
     if (!searchTerm.trim()) {
       setSearchResult(null);
-      fetchSessions(); // Reload initial list if search is cleared
+      fetchSessions(); 
       return;
     }
     setIsSearching(true);
@@ -113,13 +135,43 @@ export default function AdminDashboard() {
         toast({variant: "default", title: "Not Found", description: `Session ID "${searchTerm.trim()}" not found.`});
       }
     } catch (error) {
-      toast({variant: "destructive", title: "Search Error", description: "Could not perform search."});
+        if (error instanceof Error && error.message.includes("Firebase is not configured")) {
+            setFirebaseConfigError(error.message);
+        } else {
+            toast({variant: "destructive", title: "Search Error", description: "Could not perform search."});
+        }
     } finally {
       setIsSearching(false);
     }
   };
 
   const displaySessions = searchResult ? [searchResult] : sessions;
+
+  if (firebaseConfigError) {
+    return (
+      <Card className="shadow-lg border-destructive">
+        <CardHeader>
+          <div className="flex items-center text-destructive">
+            <AlertTriangle className="h-6 w-6 mr-2" />
+            <CardTitle className="text-2xl">Admin Panel Configuration Error</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm p-4 bg-destructive/10 text-destructive-foreground border border-destructive rounded-md">
+            {firebaseConfigError}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            To enable admin functionalities, please ensure your Firebase project is correctly set up and the configuration details are accurately entered in the <code className="bg-muted px-1.5 py-0.5 rounded-sm text-xs">src/lib/firebase.ts</code> file. 
+            This includes setting up Firestore database with appropriate access rules.
+          </p>
+          <Button onClick={() => { setFirebaseConfigError(null); setIsLoading(true); fetchSessions(); }} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry Connection
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="shadow-lg">
@@ -231,3 +283,4 @@ export default function AdminDashboard() {
     </Card>
   );
 }
+
