@@ -491,13 +491,13 @@ export default function VisionaryPrompterPage() {
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8 print:p-0">
       <header className="w-full mb-8 md:mb-12 text-center">
-        <div className="inline-flex items-center justify-center space-x-3 mb-3 bg-primary/10 px-4 py-2 rounded-full">
-          <BrainCircuit className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-bold text-primary tracking-tight">
+        <div className="inline-flex items-center justify-center space-x-2 mb-3">
+          <BrainCircuit className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-headline font-bold text-primary tracking-tight">
             Visionary Prompter
           </h1>
         </div>
-        <p className="text-md sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-base sm:text-md md:text-lg text-muted-foreground max-w-xl mx-auto">
           Upload an image, configure parameters, and let AI craft the perfect prompt & analyze its style.
         </p>
       </header>
@@ -505,27 +505,23 @@ export default function VisionaryPrompterPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Column 1: Configuration & Image Preview */}
         <div className="lg:col-span-2 space-y-6 md:space-y-8">
-          <Card className="shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-muted/30 border-b border-border">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <div className="flex-grow mb-2 sm:mb-0">
-                    <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
-                    <Settings2 className="mr-2.5 h-5 w-5 md:h-6 md:w-6" />
-                    Image & Prompt Configuration
-                    </CardTitle>
-                    <CardDescription className="text-sm md:text-base">Upload your image and fine-tune generation settings.</CardDescription>
-                </div>
-              </div>
+          <Card className="shadow-md">
+            <CardHeader className="border-b">
+                <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                <Settings2 className="mr-2 h-5 w-5" />
+                Image & Prompt Configuration
+                </CardTitle>
+                <CardDescription className="text-sm">Upload your image and fine-tune generation settings.</CardDescription>
             </CardHeader>
-            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Image Upload Section */}
               <div className="space-y-3">
-                <Label htmlFor="image-upload" className="text-base font-medium flex items-center">
-                  <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload Image
+                <Label htmlFor="image-upload" className="text-sm font-medium flex items-center">
+                  <UploadCloud className="mr-2 h-4 w-4 text-primary" /> Upload Image
                 </Label>
                 <div
-                  className={`aspect-video w-full rounded-lg border-2 border-dashed transition-all duration-300 ease-in-out
-                    ${uploadedImage ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary bg-muted/20'} 
+                  className={`aspect-video w-full rounded-md border-2 border-dashed transition-all duration-300 ease-in-out
+                    ${uploadedImage ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary/70 bg-muted/50'} 
                     flex items-center justify-center cursor-pointer group relative overflow-hidden`}
                   onClick={() => fileInputRef.current?.click()}
                   onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
@@ -534,14 +530,14 @@ export default function VisionaryPrompterPage() {
                   aria-label="Upload image"
                 >
                   {uploadedImage ? (
-                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-1" data-ai-hint="user uploaded" />
+                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded" />
                   ) : (
                     <div className="text-center p-4">
-                      <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <p className="mt-2 text-sm text-muted-foreground">
+                      <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <p className="mt-2 text-xs text-muted-foreground">
                         <span className="font-semibold text-primary">Click or Drag & Drop</span>
                       </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP (Max 50MB)</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, GIF, WEBP (Max 50MB)</p>
                     </div>
                   )}
                 </div>
@@ -551,12 +547,12 @@ export default function VisionaryPrompterPage() {
               {/* Configuration Options Section */}
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="target-model-select" className="text-sm font-medium mb-1.5 block">Target AI Model</Label>
+                  <Label htmlFor="target-model-select" className="text-xs font-medium mb-1 block">Target AI Model</Label>
                   <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
                     {renderSelectTrigger(Lightbulb, "Select target model", selectedTargetModel)}
                     <SelectContent>
                       {targetModelOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>
+                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
                           <div className="flex items-center gap-2">
                             {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
                           </div>
@@ -567,12 +563,12 @@ export default function VisionaryPrompterPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="language-select" className="text-sm font-medium mb-1.5 block">Output Language</Label>
+                  <Label htmlFor="language-select" className="text-xs font-medium mb-1 block">Output Language</Label>
                   <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
                     {renderSelectTrigger(Languages, "Select language", languageOptions.find(l => l.value === selectedLanguage)?.label)}
                     <SelectContent>
                       {languageOptions.map(lang => (
-                        <SelectItem key={lang.value} value={lang.value}>
+                        <SelectItem key={lang.value} value={lang.value} className="text-sm">
                            <div className="flex items-center gap-2">
                             {lang.icon && React.createElement(lang.icon, { className: "h-4 w-4 opacity-70"})} {lang.label}
                           </div>
@@ -583,12 +579,12 @@ export default function VisionaryPrompterPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="prompt-style-select" className="text-sm font-medium mb-1.5 block">Prompt Style</Label>
+                  <Label htmlFor="prompt-style-select" className="text-xs font-medium mb-1 block">Prompt Style</Label>
                   <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
                      {renderSelectTrigger(Paintbrush, "Select prompt style", promptStyleOptions.find(p => p.value === selectedPromptStyle)?.label)}
                     <SelectContent>
                       {promptStyleOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>
+                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
                           <div className="flex items-center gap-2">
                             {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
                           </div>
@@ -598,20 +594,20 @@ export default function VisionaryPrompterPage() {
                   </Select>
                 </div>
                 
-                <div className="space-y-2 pt-1">
+                <div className="space-y-1.5 pt-1">
                     <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="word-count-slider" className="text-sm font-medium">Prompt Word Count</Label>
-                        <Badge variant="secondary" className="text-xs font-medium text-primary px-2 py-0.5">{minWords} - {maxWords} words</Badge>
+                        <Label htmlFor="word-count-slider" className="text-xs font-medium">Prompt Word Count</Label>
+                        <Badge variant="secondary" className="text-xs font-medium text-primary px-1.5 py-0.5">{minWords} - {maxWords} words</Badge>
                     </div>
                     <Slider
                         id="word-count-slider"
                         min={OVERALL_MIN_WORDS} max={OVERALL_MAX_WORDS} step={5}
                         value={[minWords, maxWords]} onValueChange={handleWordCountChange}
-                        className="w-full [&>span:nth-child(2)]:bg-primary [&>span:nth-child(3)]:bg-primary"
+                        className="w-full [&>span:nth-child(2)]:bg-primary [&>span:nth-child(3)]:bg-primary h-1.5"
                         disabled={anyLoading}
                         aria-label={`Word count range slider, current range ${minWords} to ${maxWords} words.`}
                     />
-                    <p className="text-xs text-muted-foreground">Adjust min & max word count. Overall range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
+                     <p className="text-xs text-muted-foreground pt-0.5">Range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
                 </div>
                 <div className="flex items-center space-x-2 pt-2">
                   <Switch
@@ -621,56 +617,56 @@ export default function VisionaryPrompterPage() {
                     disabled={anyLoading}
                     aria-label="Toggle to allow potentially NSFW content in prompts"
                   />
-                  <Label htmlFor="allow-nsfw-config-switch" className="text-sm text-muted-foreground cursor-pointer">
+                  <Label htmlFor="allow-nsfw-config-switch" className="text-xs text-muted-foreground cursor-pointer">
                     Allow Potentially NSFW Content
                   </Label>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="p-6 bg-muted/30 border-t border-border">
+            <CardFooter className="p-4 md:p-6 border-t">
               <Button
                 onClick={handleGeneratePrompt}
                 disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-                className="w-full text-base py-3 rounded-md font-semibold"
+                className="w-full text-sm py-2.5 rounded-md font-semibold"
                 size="lg"
                 aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
               >
-                {isLoading ? <LoadingSpinner size="1.1rem" className="mr-2" /> : <Wand2 className="mr-2 h-5 w-5" />}
+                {isLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
                 Generate Visionary Prompt
               </Button>
             </CardFooter>
              {credits !== null && credits <= 0 && !anyLoading && (
-              <p className="text-sm text-center text-destructive pb-4 px-6">You have run out of credits. Please manage your session or contact support.</p>
+              <p className="text-xs text-center text-destructive pb-4 px-6 -mt-2">You have run out of credits.</p>
             )}
           </Card>
 
           {/* Generated Prompt Section */}
           {(generatedPrompt || isLoading) && (
-            <Card className="shadow-lg rounded-xl">
-              <CardHeader className="border-b border-border">
-                <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
-                  <Lightbulb className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> AI Generated Prompt
+            <Card className="shadow-md">
+              <CardHeader className="border-b">
+                <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                  <Lightbulb className="mr-2 h-5 w-5" /> AI Generated Prompt
                 </CardTitle>
-                <CardDescription>Your crafted prompt. Use the tools to refine or copy it.</CardDescription>
+                <CardDescription className="text-sm">Your crafted prompt. Use the tools to refine or copy it.</CardDescription>
               </CardHeader>
-              <CardContent className="p-6 relative">
+              <CardContent className="p-4 md:p-6 relative">
                 {isLoading && !generatedPrompt && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
-                    <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
+                    <LoadingSpinner size="1.5rem" message="Analyzing & crafting..." />
                     </div>
                 )}
-                <div className="mb-3 flex items-center justify-end space-x-1.5 border border-input rounded-md p-1 bg-muted/30">
-                    <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Magic Enhance Prompt">
-                        {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Magic</span>
+                <div className="mb-2.5 flex items-center justify-end space-x-1 border border-input rounded-md p-1 bg-muted/50">
+                    <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
+                        {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Magic</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleExtendPrompt} title="Extend Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Extend Prompt">
-                        {isExtendingLoading ? <LoadingSpinner size="0.9rem" /> : <Maximize className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Extend</span>
+                    <Button variant="ghost" size="sm" onClick={handleExtendPrompt} title="Extend Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Extend Prompt">
+                        {isExtendingLoading ? <LoadingSpinner size="0.8rem" /> : <Maximize className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Extend</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Translate Prompt">
-                        {isTranslateLoading ? <LoadingSpinner size="0.9rem" /> : <Globe className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Translate</span>
+                    <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Translate Prompt">
+                        {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Translate</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleCopyPrompt(generatedPrompt)} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Copy Prompt">
-                        {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Copy</span>
+                    <Button variant="ghost" size="sm" onClick={() => handleCopyPrompt(generatedPrompt)} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Copy Prompt">
+                        {isCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Copy</span>
                     </Button>
                 </div>
                 <Textarea
@@ -678,7 +674,7 @@ export default function VisionaryPrompterPage() {
                   value={generatedPrompt}
                   readOnly
                   placeholder={isLoading ? "Generating your visionary prompt..." : "Your AI-generated prompt will appear here..."}
-                  className="min-h-[150px] md:min-h-[180px] text-sm md:text-base bg-background focus-visible:ring-primary rounded-md border-input"
+                  className="min-h-[120px] md:min-h-[150px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
                   aria-live="polite"
                 />
               </CardContent>
@@ -688,143 +684,143 @@ export default function VisionaryPrompterPage() {
 
         {/* Column 2: Analysis Tools */}
         <div className="lg:col-span-1 space-y-6 md:space-y-8">
-          <Card className="shadow-lg rounded-xl">
-            <CardHeader className="border-b border-border">
-              <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
-                <Palette className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> Image Style Analysis
+          <Card className="shadow-md">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                <Palette className="mr-2 h-5 w-5" /> Image Style Analysis
               </CardTitle>
-              <CardDescription>Identify artistic style, colors, mood. (1 Credit)</CardDescription>
+              <CardDescription className="text-sm">Identify artistic style, colors, mood. (1 Credit)</CardDescription>
             </CardHeader>
-            <CardContent className="p-6 relative">
-              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
-                {isStyleAnalysisLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Paintbrush className="mr-2 h-4 w-4" />} Analyze Style
+            <CardContent className="p-4 md:p-6 relative">
+              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
+                {isStyleAnalysisLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Paintbrush className="mr-1.5 h-4 w-4" />} Analyze Style
               </Button>
-              {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-sm text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
+              {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
               {isStyleAnalysisLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
-                  <LoadingSpinner size="2rem" message="Analyzing style..." />
+                <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
+                  <LoadingSpinner size="1.5rem" message="Analyzing style..." />
                 </div>
               )}
               {imageStyleAnalysis && !isStyleAnalysisLoading && (
-                <div className="space-y-3 text-sm animate-fade-in-fast">
-                  <div className="p-3 bg-muted/30 rounded-md border border-input">
-                    <h4 className="font-semibold text-primary mb-1">Identified Style:</h4>
+                <div className="space-y-2.5 text-xs animate-fade-in-fast">
+                  <div className="p-2.5 bg-muted/50 rounded-md border">
+                    <h4 className="font-semibold text-primary/90 mb-0.5 text-sm">Identified Style:</h4>
                     <p className="text-foreground">{imageStyleAnalysis.identifiedStyle || 'N/A'}</p>
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-md border border-input">
-                    <h4 className="font-semibold text-primary mb-1">Overall Mood:</h4>
+                  <div className="p-2.5 bg-muted/50 rounded-md border">
+                    <h4 className="font-semibold text-primary/90 mb-0.5 text-sm">Overall Mood:</h4>
                     <p className="text-foreground">{imageStyleAnalysis.overallMood || 'N/A'}</p>
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-md border border-input">
-                    <h4 className="font-semibold text-primary mb-1.5">Dominant Colors:</h4>
+                  <div className="p-2.5 bg-muted/50 rounded-md border">
+                    <h4 className="font-semibold text-primary/90 mb-1 text-sm">Dominant Colors:</h4>
                     {imageStyleAnalysis.dominantColors && imageStyleAnalysis.dominantColors.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {imageStyleAnalysis.dominantColors.map((color, index) => ( <Badge key={index} variant="secondary" className="font-normal">{color}</Badge> ))}
+                      <div className="flex flex-wrap gap-1.5">
+                        {imageStyleAnalysis.dominantColors.map((color, index) => ( <Badge key={index} variant="secondary" className="font-normal text-xs px-1.5 py-0.5">{color}</Badge> ))}
                       </div>
                     ) : <p className="text-muted-foreground">N/A</p>}
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-md border border-input">
-                    <h4 className="font-semibold text-primary mb-1">Composition Notes:</h4>
+                  <div className="p-2.5 bg-muted/50 rounded-md border">
+                    <h4 className="font-semibold text-primary/90 mb-0.5 text-sm">Composition Notes:</h4>
                     <p className="text-foreground">{imageStyleAnalysis.compositionNotes || 'N/A'}</p>
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-md border border-input">
-                    <h4 className="font-semibold text-primary mb-1.5">Style Keywords:</h4>
+                  <div className="p-2.5 bg-muted/50 rounded-md border">
+                    <h4 className="font-semibold text-primary/90 mb-1 text-sm">Style Keywords:</h4>
                     {imageStyleAnalysis.styleKeywords && imageStyleAnalysis.styleKeywords.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {imageStyleAnalysis.styleKeywords.map((keyword, index) => ( <Badge key={index} variant="outline" className="font-normal">{keyword}</Badge> ))}
+                    <div className="flex flex-wrap gap-1.5">
+                      {imageStyleAnalysis.styleKeywords.map((keyword, index) => ( <Badge key={index} variant="outline" className="font-normal text-xs px-1.5 py-0.5">{keyword}</Badge> ))}
                     </div>
                     ) : <p className="text-muted-foreground">N/A</p>}
                   </div>
                 </div>
               )}
-              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-sm text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
+              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg rounded-xl">
-            <CardHeader className="border-b border-border">
-              <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
-                <Layers className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> Depth Map (Experimental)
+          <Card className="shadow-md">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                <Layers className="mr-2 h-5 w-5" /> Depth Map (Experimental)
               </CardTitle>
-              <CardDescription>Generate a depth map. (1 Credit)</CardDescription>
+              <CardDescription className="text-sm">Generate a depth map. (1 Credit)</CardDescription>
             </CardHeader>
-            <CardContent className="p-6 relative">
-              <Alert variant="default" className="mb-4 bg-accent/10 border-accent/30 text-accent-foreground">
+            <CardContent className="p-4 md:p-6 relative">
+              <Alert variant="default" className="mb-4 bg-accent/10 border-accent/30 text-accent-foreground/90">
                 <Info className="h-4 w-4 text-accent-foreground/80" />
-                <AlertTitle className="font-semibold text-accent-foreground/90">Experimental Feature (Currently Disabled)</AlertTitle>
-                <AlertDescription className="text-xs">Depth map generation is temporarily disabled. It will be re-enabled soon.</AlertDescription>
+                <AlertTitle className="font-semibold text-sm">Experimental Feature (Currently Disabled)</AlertTitle>
+                <AlertDescription className="text-xs">Depth map generation is temporarily disabled.</AlertDescription>
               </Alert>
-              <Button onClick={handleGenerateDepthMap} disabled={true || anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
-                {isDepthMapLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Layers className="mr-2 h-4 w-4" />} Generate Depth Map
+              <Button onClick={handleGenerateDepthMap} disabled={true || anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
+                {isDepthMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Layers className="mr-1.5 h-4 w-4" />} Generate Depth Map
               </Button>
-              {!uploadedImage && !isDepthMapLoading && (<p className="text-sm text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
+              {!uploadedImage && !isDepthMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
               {isDepthMapLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
-                  <LoadingSpinner size="2rem" message="Generating depth map..." />
+                <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
+                  <LoadingSpinner size="1.5rem" message="Generating depth map..." />
                 </div>
               )}
               {generatedDepthMap && !isDepthMapLoading && (
-                <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-2 animate-fade-in-fast">
+                <div className="aspect-video w-full relative rounded-md overflow-hidden border mt-2 animate-fade-in-fast">
                   <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map"/>
                 </div>
               )}
-              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-sm text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
+              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
             </CardContent>
           </Card>
         </div>
       </div>
 
       {generationHistory.length > 0 && (
-        <Card className="w-full mt-8 md:mt-12 shadow-lg rounded-xl">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border">
+        <Card className="w-full mt-8 md:mt-12 shadow-md">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b">
             <div className="flex items-center mb-2 sm:mb-0">
-              <History className="mr-2.5 h-5 w-5 md:h-6 md:w-6 text-primary" />
-              <CardTitle className="text-xl md:text-2xl font-headline text-primary">Generation History</CardTitle>
+              <History className="mr-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg md:text-xl font-headline text-primary">Generation History</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 hover:border-destructive/70 self-start sm:self-center" disabled={anyLoading}>
-              <Trash2 className="mr-2 h-4 w-4" /> Clear All History
+            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/5 border-destructive/50 hover:border-destructive/70 self-start sm:self-center text-xs h-8 px-2" disabled={anyLoading}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear All
             </Button>
           </CardHeader>
-          <CardContent className="p-0 sm:p-2">
+          <CardContent className="p-0 sm:p-1">
             <Accordion type="single" collapsible className="w-full">
               {generationHistory.map((entry) => (
-                <AccordionItem value={entry.id} key={entry.id} className="border-b-border last:border-b-0">
-                  <AccordionTrigger className="hover:no-underline py-3 px-4 md:py-4 md:px-6 text-left" disabled={anyLoading}>
-                    <div className="flex items-center space-x-3 md:space-x-4 w-full">
-                      <div className="w-16 h-12 md:w-20 md:h-16 relative rounded-md overflow-hidden border border-input shrink-0 bg-muted">
+                <AccordionItem value={entry.id} key={entry.id} className="border-b last:border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-2.5 px-3 md:py-3 md:px-4 text-left text-sm group" disabled={anyLoading}>
+                    <div className="flex items-center space-x-3 w-full">
+                      <div className="w-12 h-10 md:w-16 md:h-12 relative rounded overflow-hidden border shrink-0 bg-muted group-hover:border-primary/30 transition-colors">
                         {entry.imagePreviewUrl ? (
                            <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
+                            <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/70" />
                           </div>
                         )}
                       </div>
                       <div className="flex-grow overflow-hidden">
-                        <p className="font-medium text-sm sm:text-base truncate text-foreground" title={entry.params.photoFileName || 'Uploaded Image'}>
+                        <p className="font-medium text-xs sm:text-sm truncate text-foreground" title={entry.params.photoFileName || 'Uploaded Image'}>
                           {entry.params.photoFileName || 'Previously Uploaded Image'}
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
                       </div>
-                       <Badge variant="outline" className="ml-auto hidden sm:inline-flex text-xs">{entry.params.targetModel}</Badge>
+                       <Badge variant="outline" className="ml-auto hidden sm:inline-flex text-xs px-1.5 py-0.5 font-normal">{entry.params.targetModel}</Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-3 bg-muted/20">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground p-2 rounded-md border border-input bg-background/50">
+                  <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-2.5 bg-muted/30">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs text-muted-foreground p-2 rounded-md border bg-background/50">
                       <div><strong>Model:</strong> {entry.params.targetModel}</div>
                       <div><strong>Lang:</strong> {entry.params.outputLanguage}</div>
                       <div><strong>Style:</strong> {entry.params.promptStyle}</div>
                       <div><strong>Words:</strong> {entry.params.minWords}-{entry.params.maxWords}</div>
-                      <div><strong>NSFW:</strong> {entry.params.allowNsfw ? <Eye className="inline h-3.5 w-3.5 text-green-500" /> : <EyeOff className="inline h-3.5 w-3.5 text-red-500" />}</div>
+                      <div><strong>NSFW:</strong> {entry.params.allowNsfw ? <Eye className="inline h-3 w-3 text-green-600" /> : <EyeOff className="inline h-3 w-3 text-red-600" />}</div>
                     </div>
                     <div className="relative">
-                      <Textarea value={entry.generatedPrompt} readOnly className="min-h-[80px] text-xs bg-background border-input" />
-                      <Button variant="ghost" size="icon" onClick={() => handleCopyPrompt(entry.generatedPrompt)} className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-primary h-7 w-7" aria-label="Copy prompt from history" disabled={anyLoading}>
-                        <Copy className="h-3.5 w-3.5" />
+                      <Textarea value={entry.generatedPrompt} readOnly className="min-h-[70px] text-xs bg-background" />
+                      <Button variant="ghost" size="icon" onClick={() => handleCopyPrompt(entry.generatedPrompt)} className="absolute top-1 right-1 text-muted-foreground hover:text-primary h-6 w-6" aria-label="Copy prompt from history" disabled={anyLoading}>
+                        <Copy className="h-3 w-3" />
                       </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading} className="text-sm">
-                      <DownloadCloud className="mr-2 h-4 w-4" /> Load Settings & Prompt
+                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading} className="text-xs h-8 px-2">
+                      <DownloadCloud className="mr-1.5 h-3.5 w-3.5" /> Load Settings & Prompt
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
@@ -834,23 +830,23 @@ export default function VisionaryPrompterPage() {
         </Card>
       )}
 
-      <footer className="mt-12 md:mt-16 py-8 text-center text-xs md:text-sm text-muted-foreground border-t border-border">
+      <footer className="mt-12 md:mt-16 py-6 text-center text-xs text-muted-foreground border-t">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. AI-Powered Creativity.</p>
         {sessionId && !isEditingSessionId && (
-          <div className="text-xs mt-2">
-            Current Session:{" "}
-            <Button variant="link" className="p-0 h-auto text-xs text-primary hover:underline" onClick={() => { setNewSessionIdInput(sessionId); setIsEditingSessionId(true); }} title="Edit Session ID" disabled={anyLoading}>
-              {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId} <Edit3 className="ml-1 h-3 w-3" />
+          <div className="text-xs mt-1.5">
+            Session:{" "}
+            <Button variant="link" className="p-0 h-auto text-xs text-primary/80 hover:underline" onClick={() => { setNewSessionIdInput(sessionId); setIsEditingSessionId(true); }} title="Edit Session ID" disabled={anyLoading}>
+              {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId} <Edit3 className="ml-0.5 h-2.5 w-2.5" />
             </Button>
           </div>
         )}
         {isEditingSessionId && sessionId && (
-          <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-md mx-auto">
+          <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-1.5 max-w-sm mx-auto">
             <Label htmlFor="session-id-input" className="text-xs sr-only">New Session ID:</Label>
             <Input id="session-id-input" type="text" value={newSessionIdInput} onChange={(e) => setNewSessionIdInput(e.target.value)} placeholder="Enter or generate new Session ID" className="text-xs h-8 w-full sm:w-auto flex-grow" onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }} disabled={anyLoading} />
-            <div className="flex gap-2 mt-1 sm:mt-0">
-              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs px-3" disabled={anyLoading}>Set ID</Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs px-3" disabled={anyLoading}>Cancel</Button>
+            <div className="flex gap-1.5 mt-1 sm:mt-0">
+              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs px-2.5" disabled={anyLoading}>Set ID</Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs px-2.5" disabled={anyLoading}>Cancel</Button>
             </div>
           </div>
         )}
@@ -858,5 +854,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
-    

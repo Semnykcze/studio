@@ -17,7 +17,7 @@ interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
-  imagePreviews?: string[]; // For displaying user-uploaded images in the chat
+  imagePreviews?: string[]; 
   timestamp: Date;
 }
 
@@ -31,7 +31,6 @@ export default function VisionaryChatterPage() {
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +126,6 @@ export default function VisionaryChatterPage() {
     setMessages((prevMessages) => [...prevMessages, userMessageEntry]);
     
     setCurrentMessage('');
-    // Keep imagePreviews for the user message display, they will be cleared after successful processing.
     
     setIsLoading(true);
 
@@ -141,19 +139,16 @@ export default function VisionaryChatterPage() {
       return;
     }
     
-    // Clean up local previews and files for the input area after they are included in the message
     imagePreviews.forEach(preview => URL.revokeObjectURL(preview));
     setImagePreviews([]);
     setUploadedImages([]);
 
 
     const genkitHistory: GenkitMessage[] = messages
-      .filter(msg => msg.id !== 'initial-greeting') // Exclude initial greeting
+      .filter(msg => msg.id !== 'initial-greeting') 
       .map((msg): GenkitMessage => {
         const parts: PartType[] = [];
         if (msg.text) parts.push({ text: msg.text });
-        // If history images need to be resent, they would need to be stored as dataURIs in ChatMessage.
-        // For this version, we are only sending current turn's images.
         return {
           role: msg.sender === 'user' ? 'user' : 'model',
           parts: parts,
@@ -194,109 +189,109 @@ export default function VisionaryChatterPage() {
     <div className="container mx-auto p-4 sm:p-6 md:p-8 flex flex-col h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))] print:p-0">
       <style jsx global>{`
         :root {
-          --header-height: 4rem; /* Adjust if your header height changes */
-          --footer-height: 4.5rem; /* Adjust if your footer height changes */
+          --header-height: 4rem; 
+          --footer-height: 4.5rem; 
         }
         body {
-          overflow: hidden; /* Prevent body scroll when chat is full height */
+          overflow: hidden; 
         }
       `}</style>
       <header className="w-full mb-6 md:mb-8 text-center">
-        <div className="inline-flex items-center justify-center space-x-3 mb-3 bg-primary/10 px-4 py-2 rounded-full">
-          <MessageCircle className="h-8 w-8 md:h-10 md:w-10 text-primary" />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-bold text-primary tracking-tight">
+        <div className="inline-flex items-center justify-center space-x-2 mb-3">
+          <MessageCircle className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-headline font-bold text-primary tracking-tight">
             Visionary Chatter
           </h1>
         </div>
-        <p className="text-md sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-          Your AI assistant for crafting image generation prompts. Now with image understanding!
+        <p className="text-base sm:text-md md:text-lg text-muted-foreground max-w-xl mx-auto">
+          Your AI assistant for crafting image generation prompts.
         </p>
       </header>
 
-      <Card className="flex-grow flex flex-col shadow-lg rounded-xl overflow-hidden border border-border">
-        <CardHeader className="bg-muted/30 border-b border-border py-3 px-4">
-          <CardTitle className="text-lg font-headline flex items-center text-primary">
-            <Bot className="mr-2 h-5 w-5" /> Chat Session
+      <Card className="flex-grow flex flex-col shadow-md rounded-lg overflow-hidden border">
+        <CardHeader className="border-b py-3 px-4">
+          <CardTitle className="text-base font-headline flex items-center text-primary">
+            <Bot className="mr-2 h-4 w-4" /> Chat Session
           </CardTitle>
         </CardHeader>
         
         <ScrollArea className="flex-grow" viewportRef={viewportRef}>
-          <div className="p-4 space-y-6">
+          <div className="p-4 space-y-4">
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex items-start gap-3 ${
+                className={`flex items-start gap-2.5 ${
                   msg.sender === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
                 {msg.sender === 'ai' && (
-                  <Avatar className="h-8 w-8 border border-primary/30 shrink-0">
-                    <AvatarFallback className="bg-primary/20 text-primary rounded-full">
-                      <Bot size={18} />
+                  <Avatar className="h-7 w-7 border border-primary/20 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs">
+                      <Bot size={16} />
                     </AvatarFallback>
                   </Avatar>
                 )}
                 <div
-                  className={`max-w-[75%] p-3 rounded-xl shadow-sm text-sm ${
+                  className={`max-w-[80%] p-2.5 rounded-lg shadow-sm text-sm ${
                     msg.sender === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-none'
-                      : 'bg-card border border-border text-card-foreground rounded-bl-none'
+                      ? 'bg-primary text-primary-foreground rounded-br-sm'
+                      : 'bg-card border text-card-foreground rounded-bl-sm'
                   }`}
                 >
                   {msg.imagePreviews && msg.imagePreviews.length > 0 && (
-                    <div className={`mb-2 flex flex-wrap gap-2 ${msg.imagePreviews.length > 1 ? 'grid grid-cols-2' : ''}`}>
+                    <div className={`mb-1.5 flex flex-wrap gap-1.5 ${msg.imagePreviews.length > 1 ? 'grid grid-cols-2' : ''}`}>
                       {msg.imagePreviews.map((previewUrl, index) => (
-                        <div key={index} className="relative aspect-square w-32 rounded-md overflow-hidden border border-input group">
+                        <div key={index} className="relative aspect-square w-28 rounded overflow-hidden border border-input/50 group">
                           <Image src={previewUrl} alt={`Uploaded preview ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="chat image preview"/>
                         </div>
                       ))}
                     </div>
                   )}
                   {msg.text && <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
-                  <p className={`text-xs mt-2 opacity-70 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                  <p className={`text-xs mt-1.5 opacity-60 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 {msg.sender === 'user' && (
-                  <Avatar className="h-8 w-8 border border-input shrink-0">
-                    <AvatarFallback className="bg-muted rounded-full">
-                      <User size={18} />
+                  <Avatar className="h-7 w-7 border border-input shrink-0">
+                    <AvatarFallback className="bg-muted rounded-full text-xs">
+                      <User size={16} />
                     </AvatarFallback>
                   </Avatar>
                 )}
               </div>
             ))}
             {isLoading && messages[messages.length -1]?.sender === 'user' && (
-              <div className="flex justify-start items-start gap-3 mb-4">
-                 <Avatar className="h-8 w-8 border border-primary/30 shrink-0">
-                    <AvatarFallback className="bg-primary/20 text-primary rounded-full">
-                      <Bot size={18} />
+              <div className="flex justify-start items-start gap-2.5 mb-4">
+                 <Avatar className="h-7 w-7 border border-primary/20 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs">
+                      <Bot size={16} />
                     </AvatarFallback>
                   </Avatar>
-                <div className="bg-card border border-border text-card-foreground rounded-xl rounded-bl-none p-3 shadow-sm">
-                  <LoadingSpinner size="1rem" message="Thinking..." />
+                <div className="bg-card border text-card-foreground rounded-lg rounded-bl-sm p-2.5 shadow-sm">
+                  <LoadingSpinner size="0.9rem" message="Thinking..." />
                 </div>
               </div>
             )}
           </div>
         </ScrollArea>
 
-        <CardFooter className="p-3 border-t border-border bg-muted/30">
+        <CardFooter className="p-2.5 border-t bg-muted/50">
           {imagePreviews.length > 0 && (
-            <div className="mb-2 p-3 border border-input rounded-lg bg-background w-full">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Selected Images ({imagePreviews.length}/{MAX_IMAGES_COUNT}):</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="mb-2 p-2.5 border rounded-md bg-background w-full">
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Selected ({imagePreviews.length}/{MAX_IMAGES_COUNT}):</p>
+              <div className="flex flex-wrap gap-1.5">
                 {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative w-16 h-16 animate-fade-in-fast">
-                    <Image src={preview} alt={`Preview ${index}`} layout="fill" objectFit="cover" className="rounded-md border border-input" data-ai-hint="image preview"/>
+                  <div key={index} className="relative w-14 h-14 animate-fade-in-fast">
+                    <Image src={preview} alt={`Preview ${index}`} layout="fill" objectFit="cover" className="rounded border" data-ai-hint="image preview"/>
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="absolute -top-2 -right-2 h-5 w-5 rounded-full shadow-md"
+                      className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full shadow"
                       onClick={() => removeImage(index)}
                       aria-label="Remove image"
                     >
-                      <XCircle size={12} />
+                      <XCircle size={10} />
                     </Button>
                   </div>
                 ))}
@@ -310,11 +305,11 @@ export default function VisionaryChatterPage() {
               size="icon" 
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || uploadedImages.length >= MAX_IMAGES_COUNT}
-              className="h-10 w-10 shrink-0 rounded-full"
+              className="h-9 w-9 shrink-0 rounded-full"
               title={`Attach images (up to ${MAX_IMAGES_COUNT})`}
               aria-label="Attach images"
             >
-              <Paperclip size={18} />
+              <Paperclip size={16} />
             </Button>
             <Input
               type="file"
@@ -330,8 +325,8 @@ export default function VisionaryChatterPage() {
               type="text"
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
-              placeholder="Ask about prompt techniques, or describe an image..."
-              className="flex-grow text-sm h-10 rounded-full px-4 focus-visible:ring-primary"
+              placeholder="Ask about prompt techniques..."
+              className="flex-grow text-sm h-9 rounded-full px-3.5 focus-visible:ring-primary/50"
               disabled={isLoading}
               aria-label="Your message"
             />
@@ -339,10 +334,10 @@ export default function VisionaryChatterPage() {
               type="submit" 
               size="icon" 
               disabled={isLoading || (!currentMessage.trim() && uploadedImages.length === 0)} 
-              className="h-10 w-10 shrink-0 rounded-full bg-primary hover:bg-primary/90" 
+              className="h-9 w-9 shrink-0 rounded-full bg-primary hover:bg-primary/90" 
               aria-label="Send message"
             >
-              {isLoading ? <LoadingSpinner size="1rem" /> : <Send size={18} className="text-primary-foreground"/>}
+              {isLoading ? <LoadingSpinner size="0.9rem" /> : <Send size={16} className="text-primary-foreground"/>}
             </Button>
           </form>
         </CardFooter>

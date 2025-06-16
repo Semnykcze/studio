@@ -68,9 +68,16 @@ export default {
         },
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        lg: 'var(--radius)', // Now 0.3rem
+        md: 'calc(var(--radius) - 0.05rem)', // e.g., 0.25rem
+        sm: 'calc(var(--radius) - 0.1rem)', // e.g., 0.2rem
+      },
+      boxShadow: { // More subtle shadows
+        sm: '0 1px 2px 0 rgb(0 0 0 / 0.03)',
+        DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
+        md: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        lg: '0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05)',
+        xl: '0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05)',
       },
       keyframes: {
         'accordion-down': {
@@ -93,7 +100,7 @@ export default {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
-        'fade-in-fast': { /* New animation */
+        'fade-in-fast': { 
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
@@ -102,7 +109,7 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-in': 'fade-in 0.5s ease-out',
-        'fade-in-fast': 'fade-in-fast 0.2s ease-out', /* New animation */
+        'fade-in-fast': 'fade-in-fast 0.2s ease-out', 
       },
     },
   },
