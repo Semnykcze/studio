@@ -1,6 +1,7 @@
+
 'use server';
 /**
- * @fileOverview Analyzes an image and generates a prompt optimized for the Flux.1 Dev model.
+ * @fileOverview Analyzes an image and generates a prompt optimized for a selected model.
  *
  * - analyzeImageGeneratePrompt - A function that handles the image analysis and prompt generation process.
  * - AnalyzeImageGeneratePromptInput - The input type for the analyzeImageGeneratePrompt function.
@@ -16,12 +17,14 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
     .describe(
       "A photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  modelType: z.enum(['gemini', 'gemma']).default('gemini').describe('The type of model to use: gemini or gemma.'),
+  modelType: z.enum(['gemini', 'gemma']).default('gemini').describe('The type of AI model to use for analysis: gemini or gemma.'),
+  targetModel: z.string().default('Flux.1 Dev').describe('The target model for which the prompt should be optimized (e.g., Flux.1 Dev, Midjourney, Stable Diffusion, General Text).'),
+  maxWords: z.number().min(50).max(250).default(150).describe('The maximum number of words for the generated prompt (50-250).'),
 });
 export type AnalyzeImageGeneratePromptInput = z.infer<typeof AnalyzeImageGeneratePromptInputSchema>;
 
 const AnalyzeImageGeneratePromptOutputSchema = z.object({
-  prompt: z.string().describe('A prompt optimized for the Flux.1 Dev model.'),
+  prompt: z.string().describe('An optimized prompt for the selected target model.'),
 });
 export type AnalyzeImageGeneratePromptOutput = z.infer<typeof AnalyzeImageGeneratePromptOutputSchema>;
 
@@ -35,11 +38,15 @@ const analyzeImageGeneratePromptPrompt = ai.definePrompt({
   output: {schema: AnalyzeImageGeneratePromptOutputSchema},
   prompt: `You are an expert in analyzing images and generating prompts for AI image generation models.
 
-  Based on the image provided, generate a prompt optimized for the Flux.1 Dev model that would allow a user to recreate the image.
+Based on the image provided, generate a prompt optimized for the "{{{targetModel}}}" model that would allow a user to recreate the image.
+The prompt must be a maximum of {{{maxWords}}} words.
+If the user selected "General Text" as the target model, create a descriptive text about the image instead of a model-specific prompt.
 
-  Consider details like objects present, colors, styles, and overall composition.
+Consider details like objects present, colors, styles, and overall composition.
 
-  Photo: {{media url=photoDataUri}}`,
+Image for analysis:
+{{media url=photoDataUri}}
+`,
 });
 
 const analyzeImageGeneratePromptFlow = ai.defineFlow(

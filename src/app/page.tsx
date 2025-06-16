@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,18 +9,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from "@/components/ui/slider";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal } from 'lucide-react';
 
-type ModelType = 'gemini' | 'gemma';
+type AnalysisModelType = 'gemini' | 'gemma';
+type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<ModelType>('gemini');
+  const [selectedAnalysisModel, setSelectedAnalysisModel] = useState<AnalysisModelType>('gemini');
+  const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
+  const [maxWords, setMaxWords] = useState<number>(150);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   
@@ -71,7 +76,9 @@ export default function VisionaryPrompterPage() {
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
-        modelType: selectedModel,
+        modelType: selectedAnalysisModel,
+        targetModel: selectedTargetModel,
+        maxWords: maxWords,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
@@ -111,7 +118,7 @@ export default function VisionaryPrompterPage() {
           </h1>
         </div>
         <p className="text-lg md:text-xl text-muted-foreground">
-          Upload an image, and let AI craft the perfect prompt for Flux.1 Dev.
+          Upload an image, and let AI craft the perfect prompt.
         </p>
       </header>
 
@@ -122,7 +129,7 @@ export default function VisionaryPrompterPage() {
               <UploadCloud className="mr-2 h-6 w-6 text-primary" />
               Configure & Generate
             </CardTitle>
-            <CardDescription>Upload your image and select the analysis model.</CardDescription>
+            <CardDescription>Upload your image and set generation parameters.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -154,10 +161,10 @@ export default function VisionaryPrompterPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="model-select" className="text-base">Analysis Model</Label>
-              <Select value={selectedModel} onValueChange={(value: string) => setSelectedModel(value as ModelType)}>
-                <SelectTrigger id="model-select" className="w-full text-base">
-                  <SelectValue placeholder="Select a model" />
+              <Label htmlFor="analysis-model-select" className="text-base">Analysis Model</Label>
+              <Select value={selectedAnalysisModel} onValueChange={(value: string) => setSelectedAnalysisModel(value as AnalysisModelType)}>
+                <SelectTrigger id="analysis-model-select" className="w-full text-base">
+                  <SelectValue placeholder="Select analysis model" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">Gemini</SelectItem>
@@ -165,6 +172,41 @@ export default function VisionaryPrompterPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="target-model-select" className="text-base">Target Prompt Model</Label>
+              <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)}>
+                <SelectTrigger id="target-model-select" className="w-full text-base">
+                  <SelectValue placeholder="Select target model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Flux.1 Dev">Flux.1 Dev</SelectItem>
+                  <SelectItem value="Midjourney">Midjourney</SelectItem>
+                  <SelectItem value="Stable Diffusion">Stable Diffusion</SelectItem>
+                  <SelectItem value="General Text">General Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="max-words-slider" className="text-base flex items-center">
+                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Max Prompt Words
+                </Label>
+                <span className="text-sm font-medium text-primary">{maxWords} words</span>
+              </div>
+              <Slider
+                id="max-words-slider"
+                min={50}
+                max={250}
+                step={10}
+                value={[maxWords]}
+                onValueChange={(value: number[]) => setMaxWords(value[0])}
+                className="w-full"
+              />
+               <p className="text-xs text-muted-foreground">Range: 50 - 250 words.</p>
+            </div>
+
 
             <Button 
               onClick={handleGeneratePrompt} 
@@ -189,7 +231,7 @@ export default function VisionaryPrompterPage() {
             </CardTitle>
             <CardDescription>Your uploaded image and the AI-generated prompt.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 relative">
             {uploadedImage ? (
               <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input">
                 <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" data-ai-hint="user uploaded" />
@@ -223,12 +265,12 @@ export default function VisionaryPrompterPage() {
                   </Button>
                 )}
               </div>
-              {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg">
+            </div>
+             {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
                   <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
                 </div>
               )}
-            </div>
             
           </CardContent>
         </Card>
@@ -239,3 +281,4 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
