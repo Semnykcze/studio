@@ -18,7 +18,7 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
-import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
+//import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 
 import { LoadingSpinner } from '@/components/loading-spinner';
@@ -367,12 +367,12 @@ export default function VisionaryPrompterPage() {
     setIsDepthMapLoading(true);
     setGeneratedDepthMap(null);
     try {
-      const result = await generateDepthMap({ photoDataUri: uploadedImage });
-      setGeneratedDepthMap(result.depthMapDataUri);
-      const newCredits = credits - 1;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      //const result = await generateDepthMap({ photoDataUri: uploadedImage });
+      //setGeneratedDepthMap(result.depthMapDataUri);
+      //const newCredits = credits - 1;
+      //setCredits(newCredits);
+      //dispatchCreditsUpdate(newCredits);
+      //localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Depth map generated!", description: "Experimental feature via fal.ai." });
     } catch (error) {
       let desc = "Unknown error.";
@@ -383,7 +383,6 @@ export default function VisionaryPrompterPage() {
       setIsDepthMapLoading(false);
     }
   };
-  
   const handleAnalyzeImageStyle = async () => {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for style analysis" }); return;
