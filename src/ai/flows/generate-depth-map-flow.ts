@@ -1,7 +1,8 @@
 
 'use server';
 /**
- * @fileOverview Generates a visual depth map representation of an image using an AI model.
+ * @fileOverview Generates a visual depth map representation of an image using the Depth-Anything model
+ * via a Hugging Face Space API.
  *
  * - generateDepthMap - A function that handles the depth map generation process.
  * - GenerateDepthMapInput - The input type for the generateDepthMap function.
@@ -21,7 +22,7 @@ const GenerateDepthMapInputSchema = z.object({
 export type GenerateDepthMapInput = z.infer<typeof GenerateDepthMapInputSchema>;
 
 const GenerateDepthMapOutputSchema = z.object({
-  depthMapDataUri: z.string().describe('A data URI of the generated depth map image.'),
+  depthMapDataUri: z.string().describe('A data URI of the generated depth map image from Hugging Face Space.'),
 });
 export type GenerateDepthMapOutput = z.infer<typeof GenerateDepthMapOutputSchema>;
 
@@ -29,43 +30,67 @@ export async function generateDepthMap(input: GenerateDepthMapInput): Promise<Ge
   return generateDepthMapFlow(input);
 }
 
-const depthMapInstructions = `Generate a new grayscale image that visually represents the depth map of the provided original image.
-In the generated depth map image:
-- Brighter areas (closer to white) should indicate parts of the scene that are closer to the viewer.
-- Darker areas (closer to black) should indicate parts of the scene that are further away.
-The output must be only the generated image, with no surrounding text or explanations. The image should clearly depict depth variations.`;
+const HUGGING_FACE_API_ENDPOINT = 'https://liheyoung-depth-anything.hf.space/run/predict';
 
 const generateDepthMapFlow = ai.defineFlow(
   {
-    name: 'generateDepthMapFlow',
+    name: 'generateDepthMapViaHuggingFaceFlow',
     inputSchema: GenerateDepthMapInputSchema,
     outputSchema: GenerateDepthMapOutputSchema,
   },
-  async (input) => {
-    const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-exp', // Model for image generation
-      prompt: [
-        {media: {url: input.photoDataUri}}, // The original image
-        {text: depthMapInstructions},       // Instructions for the depth map
+  async (input: GenerateDepthMapInput): Promise<GenerateDepthMapOutput> => {
+    const payload = {
+      // fn_index is specific to the Gradio app structure on Hugging Face.
+      // For LiheYoung/Depth-Anything, the main prediction function is usually at fn_index 0.
+      // You might need to inspect the specific Space's API page (usually /api) if this changes.
+      fn_index: 0, 
+      data: [
+        input.photoDataUri,
+        "Depth Anything V2 - ViT-L (Base)", // Model type, using a common default
+        false  // Boosting disabled
       ],
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE
-      },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      ],
-    });
+      // session_hash can often be omitted or a random string.
+      // session_hash: Math.random().toString(36).substring(7) 
+    };
 
-    if (!result.media || !result.media.url) {
-      let errorMessage = 'Failed to generate depth map image or received an empty image response.';
-      if (result.text) {
-        errorMessage += ` Model response: ${result.text}`;
+    try {
+      const response = await fetch(HUGGING_FACE_API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `Hugging Face API request failed with status ${response.status}: ${response.statusText}. Body: ${errorBody}`
+        );
       }
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(`Hugging Face API returned an error: ${result.error}`);
+      }
+      
+      if (Array.isArray(result.data) && result.data.length > 0 && typeof result.data[0] === 'string' && result.data[0].startsWith('data:image')) {
+        return { depthMapDataUri: result.data[0] };
+      } else {
+        console.error('Unexpected response structure from Hugging Face API:', result);
+        throw new Error('Failed to parse depth map image from Hugging Face API response or data is not an image URI.');
+      }
+
+    } catch (error) {
+      console.error('Error calling Hugging Face Depth-Anything API:', error);
+      let errorMessage = 'Failed to generate depth map using Hugging Face service.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      // Re-throw with a more user-friendly message or the original one
       throw new Error(errorMessage);
     }
-    return { depthMapDataUri: result.media.url };
   }
 );
+
