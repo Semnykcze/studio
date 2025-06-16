@@ -22,7 +22,7 @@ type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 interface HistoryEntry {
   id: string;
   timestamp: string;
-  imagePreviewUrl: string;
+  imagePreviewUrl?: string | null; // Optional for localStorage optimization
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
@@ -43,7 +43,7 @@ export default function VisionaryPrompterPage() {
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
   const [maxWords, setMaxWords] = useState<number>(150);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('English'); // Full names for display
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
@@ -52,15 +52,45 @@ export default function VisionaryPrompterPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedHistory = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
-    if (storedHistory) {
-      setGenerationHistory(JSON.parse(storedHistory));
+    try {
+      const storedHistoryJson = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
+      if (storedHistoryJson) {
+        // History from localStorage will not have imagePreviewUrl
+        const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
+        const historyWithPlaceholders = storedHistory.map(entry => ({
+          ...entry,
+          imagePreviewUrl: null, // Explicitly set to null for items from localStorage
+        }));
+        setGenerationHistory(historyWithPlaceholders);
+      }
+    } catch (error) {
+      console.error("Error loading history from localStorage:", error);
+      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); // Clear corrupted history
+      toast({
+        variant: "destructive",
+        title: "Failed to load history",
+        description: "History data might be corrupted and has been cleared.",
+      });
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(generationHistory));
-  }, [generationHistory]);
+    // Prepare history for localStorage by removing imagePreviewUrl
+    const historyToStore = generationHistory.map(entry => {
+      const { imagePreviewUrl, ...rest } = entry; // Exclude imagePreviewUrl
+      return rest;
+    });
+    try {
+      localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
+    } catch (error) {
+      console.error("Error saving history to localStorage:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to save history",
+        description: "Could not save generation history. LocalStorage quota might be exceeded.",
+      });
+    }
+  }, [generationHistory, toast]);
 
   const languageOptions: { value: string; label: string }[] = [
     { value: 'English', label: 'English' },
@@ -76,7 +106,7 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) {
+      if (file.size > 4 * 1024 * 1024) { // 4MB limit
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -117,7 +147,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedPrompt('');
     try {
       const input: AnalyzeImageGeneratePromptInput = {
-        photoDataUri: uploadedImage,
+        photoDataUri: uploadedImage, // This is the full data URI
         targetModel: selectedTargetModel,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
@@ -129,7 +159,7 @@ export default function VisionaryPrompterPage() {
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage,
+        imagePreviewUrl: uploadedImage, // Store full data URI in-memory for immediate display
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
@@ -143,10 +173,16 @@ export default function VisionaryPrompterPage() {
 
     } catch (error) {
       console.error("Error generating prompt:", error);
+      let errorMessage = "An unknown error occurred. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
       toast({
         variant: "destructive",
         title: "Error generating prompt",
-        description: error instanceof Error ? error.message : "An unknown error occurred. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -158,8 +194,8 @@ export default function VisionaryPrompterPage() {
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
         if (uniqueId) { 
-          // For history items, toast is enough
-        } else { // For main prompt
+          // Toast for history items is sufficient
+        } else { 
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
         }
@@ -173,12 +209,22 @@ export default function VisionaryPrompterPage() {
 
   const clearHistory = () => {
     setGenerationHistory([]);
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
+    } catch (error) {
+       console.error("Error clearing history from localStorage:", error);
+    }
     toast({ title: "Generation history cleared." });
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    setUploadedImage(entry.imagePreviewUrl);
-    setImageFile(null); 
+    // If imagePreviewUrl is null, it means it was loaded from localStorage without image data
+    if (entry.imagePreviewUrl) {
+      setUploadedImage(entry.imagePreviewUrl);
+    } else {
+      setUploadedImage(null); // Clear current image preview
+    }
+    setImageFile(null); // Always clear the File object, as it's not stored
     
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -186,7 +232,15 @@ export default function VisionaryPrompterPage() {
     setSelectedLanguage(entry.params.outputLanguage);
     setGeneratedPrompt(entry.generatedPrompt);
 
-    toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown. Re-upload if regenerating."});
+    if (entry.imagePreviewUrl) {
+        toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
+    } else {
+        toast({ 
+            title: "Settings loaded from history", 
+            description: `${entry.params.photoFileName ? `Original image: ${entry.params.photoFileName}. ` : ''}Image data is not stored in history. Please re-upload the image if you want to generate a new prompt with it.`,
+            duration: 5000,
+        });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -394,7 +448,13 @@ export default function VisionaryPrompterPage() {
                   <AccordionTrigger className="hover:no-underline">
                     <div className="flex items-center space-x-3">
                       <div className="w-16 h-12 relative rounded overflow-hidden border border-input shrink-0">
-                        <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
+                        {entry.imagePreviewUrl ? (
+                           <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
                       <div className="text-left">
                         <p className="font-medium text-sm truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px]" title={entry.params.photoFileName || 'Uploaded Image'}>
@@ -444,3 +504,4 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
