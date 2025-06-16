@@ -24,7 +24,7 @@ import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleO
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush as PaintbrushIcon, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info, Film, Aperture, Shapes } from 'lucide-react';
 
-type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
+type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
 
 interface HistoryEntry {
@@ -47,6 +47,8 @@ const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
 const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId';
 const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_';
 const INITIAL_CREDITS = 10;
+const OVERALL_MIN_WORDS = 10;
+const OVERALL_MAX_WORDS = 300;
 
 
 function generateSessionId() {
@@ -133,7 +135,6 @@ export default function VisionaryPrompterPage() {
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
-          // Ensure params object and its properties exist before accessing
           params: {
             targetModel: entry.params?.targetModel || 'Flux.1 Dev',
             promptStyle: entry.params?.promptStyle || 'detailed',
@@ -344,7 +345,6 @@ export default function VisionaryPrompterPage() {
     }
     setIsExtendingLoading(true);
     try {
-      // Use the current maxWords setting from the UI for the extended prompt's max length
       const input: ExtendPromptInput = {
         originalPrompt: generatedPrompt,
         promptLanguage: selectedLanguage,
@@ -549,6 +549,19 @@ export default function VisionaryPrompterPage() {
 
     toast({ title: "Session ID Changed", description: `Switched from ${oldSessionId || 'N/A'} to ${newId}. Credits for the new session will be loaded.` });
   };
+  
+  const handleWordCountChange = (newRange: number[]) => {
+    let newMin = newRange[0];
+    let newMax = newRange[1];
+
+    if (newMin < OVERALL_MIN_WORDS) newMin = OVERALL_MIN_WORDS;
+    if (newMax > OVERALL_MAX_WORDS) newMax = OVERALL_MAX_WORDS;
+    if (newMin > newMax) newMin = newMax; // Ensure min is not greater than max
+
+    setMinWords(newMin);
+    setMaxWords(newMax);
+  };
+
 
   const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading;
 
@@ -623,6 +636,8 @@ export default function VisionaryPrompterPage() {
                   <SelectItem value="Flux.1 Dev">Flux.1 Dev</SelectItem>
                   <SelectItem value="Midjourney">Midjourney</SelectItem>
                   <SelectItem value="Stable Diffusion">Stable Diffusion</SelectItem>
+                  <SelectItem value="DALL-E 3">DALL-E 3</SelectItem>
+                  <SelectItem value="Leonardo AI">Leonardo AI</SelectItem>
                   <SelectItem value="General Text">General Text</SelectItem>
                 </SelectContent>
               </Select>
@@ -665,42 +680,22 @@ export default function VisionaryPrompterPage() {
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="min-words-slider" className="text-sm md:text-base flex items-center">
-                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Min Prompt Words
+                <Label htmlFor="word-count-slider" className="text-sm md:text-base flex items-center">
+                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Prompt Word Count Range
                 </Label>
-                <span className="text-xs md:text-sm font-medium text-primary">{minWords} words</span>
+                <span className="text-xs md:text-sm font-medium text-primary">{minWords} - {maxWords} words</span>
               </div>
               <Slider
-                id="min-words-slider"
-                min={10}
-                max={100}
+                id="word-count-slider"
+                min={OVERALL_MIN_WORDS}
+                max={OVERALL_MAX_WORDS}
                 step={5}
-                value={[minWords]}
-                onValueChange={(value: number[]) => setMinWords(value[0])}
+                value={[minWords, maxWords]}
+                onValueChange={handleWordCountChange}
                 className="w-full"
                 disabled={anyLoading}
               />
-               <p className="text-xs text-muted-foreground">Range: 10 - 100 words.</p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="max-words-slider" className="text-sm md:text-base flex items-center">
-                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Max Prompt Words
-                </Label>
-                <span className="text-xs md:text-sm font-medium text-primary">{maxWords} words</span>
-              </div>
-              <Slider
-                id="max-words-slider"
-                min={30} 
-                max={300}
-                step={10}
-                value={[maxWords]}
-                onValueChange={(value: number[]) => setMaxWords(value[0])}
-                className="w-full"
-                disabled={anyLoading}
-              />
-               <p className="text-xs text-muted-foreground">Range: 30 - 300 words. Prompt length: {minWords} - {maxWords} words.</p>
+               <p className="text-xs text-muted-foreground">Selected range: {minWords} - {maxWords} words. Overall possible: {OVERALL_MIN_WORDS} - {OVERALL_MAX_WORDS} words.</p>
             </div>
 
 
