@@ -18,7 +18,8 @@ import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins } from 'lucide-react';
-import { getCreditsForSession, updateCreditsForSession, initializeCreditsForSession } from './actions'; // Assuming actions.ts is in the same directory for simplicity
+import { getCreditsForSession, updateCreditsForSession, initializeCreditsForSession } from './actions'; 
+import { firebaseConfig } from '@/lib/firebase'; // Import firebaseConfig
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -67,6 +68,12 @@ export default function VisionaryPrompterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Client-side check for Firebase configuration
+  const isFirebaseConfiguredClientSide = firebaseConfig.apiKey !== "YOUR_API_KEY" && 
+                                       firebaseConfig.projectId !== "YOUR_PROJECT_ID" &&
+                                       firebaseConfig.apiKey !== "" &&
+                                       firebaseConfig.projectId !== "";
+
   useEffect(() => {
     let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
     if (!currentSessionId) {
@@ -76,18 +83,29 @@ export default function VisionaryPrompterPage() {
     setSessionId(currentSessionId);
 
     const fetchUserCredits = async (sid: string) => {
+      if (!isFirebaseConfiguredClientSide) {
+        setCredits(INITIAL_CREDITS); // Use local fallback
+        toast({
+          title: "Demo Mode Active",
+          description: "Firebase is not fully configured. Using local credits for this session (not saved online).",
+          duration: 7000,
+        });
+        return;
+      }
+
       try {
         let userCredits = await getCreditsForSession(sid);
-        if (userCredits === null || userCredits === undefined) {
+        if (userCredits === null) { // Check for null specifically, as undefined isn't typical from Firestore get
           userCredits = await initializeCreditsForSession(sid, INITIAL_CREDITS);
         }
         setCredits(userCredits);
       } catch (error) {
         console.error("Error fetching/initializing credits:", error);
+        const errorMessage = error instanceof Error ? error.message : "Could not load or initialize your credits. Using fallback.";
         toast({
           variant: "destructive",
           title: "Credit System Error",
-          description: "Could not load or initialize your credits. Please try refreshing.",
+          description: errorMessage,
         });
         setCredits(INITIAL_CREDITS); // Fallback
       }
@@ -96,7 +114,7 @@ export default function VisionaryPrompterPage() {
     if (currentSessionId) {
       fetchUserCredits(currentSessionId);
     }
-  }, [toast]);
+  }, [toast, isFirebaseConfiguredClientSide]); // Add isFirebaseConfiguredClientSide to dependency array
 
 
   useEffect(() => {
@@ -127,8 +145,13 @@ export default function VisionaryPrompterPage() {
       return rest;
     });
     try {
-      if (generationHistory.length > 0) { // Only save if there's actual history
+      if (generationHistory.length > 0) { 
         localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
+      } else {
+        // If history is empty, remove it from localStorage to prevent empty array persistence or errors.
+        if (localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY)) {
+          localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
+        }
       }
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
@@ -209,8 +232,13 @@ export default function VisionaryPrompterPage() {
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
       
-      const newCredits = await updateCreditsForSession(sessionId, credits - 1);
-      setCredits(newCredits);
+      if (isFirebaseConfiguredClientSide) {
+        const newCredits = await updateCreditsForSession(sessionId, credits - 1);
+        setCredits(newCredits);
+      } else {
+        setCredits(prev => (prev !== null ? prev -1 : 0)); // Local decrement
+      }
+
 
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
@@ -636,7 +664,7 @@ export default function VisionaryPrompterPage() {
 
       <footer className="mt-12 text-center text-xs md:text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
-        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId}</p>}
+        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId} {!isFirebaseConfiguredClientSide && "(Demo Mode - credits not saved online)"}</p>}
       </footer>
     </div>
   );

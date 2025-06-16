@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
 const SESSIONS_COLLECTION = 'userSessions';
@@ -12,7 +12,16 @@ const getSessionDocRef = (sessionId: string) => {
   return doc(db, SESSIONS_COLLECTION, sessionId);
 }
 
+function ensureFirebaseIsConfigured() {
+  if (!isFirebaseConfigured()) {
+    const errorMessage = "Firebase is not configured on the server. Please update src/lib/firebase.ts with your project details. Credit system is disabled.";
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+}
+
 export async function initializeCreditsForSession(sessionId: string, initialCredits: number): Promise<number> {
+  ensureFirebaseIsConfigured();
   try {
     const sessionDocRef = getSessionDocRef(sessionId);
     await setDoc(sessionDocRef, { credits: initialCredits, lastInitialized: new Date().toISOString() });
@@ -24,6 +33,7 @@ export async function initializeCreditsForSession(sessionId: string, initialCred
 }
 
 export async function getCreditsForSession(sessionId: string): Promise<number | null> {
+  ensureFirebaseIsConfigured();
   try {
     const sessionDocRef = getSessionDocRef(sessionId);
     const docSnap = await getDoc(sessionDocRef);
@@ -39,6 +49,7 @@ export async function getCreditsForSession(sessionId: string): Promise<number | 
 }
 
 export async function updateCreditsForSession(sessionId: string, newCredits: number): Promise<number> {
+  ensureFirebaseIsConfigured();
   if (newCredits < 0) {
     throw new Error("Credits cannot be negative.");
   }
@@ -47,7 +58,6 @@ export async function updateCreditsForSession(sessionId: string, newCredits: num
     await updateDoc(sessionDocRef, { credits: newCredits, lastUpdated: new Date().toISOString() });
     return newCredits;
   } catch (error) {
-    // If document doesn't exist, setDoc might be more appropriate or re-initialize
     console.error(`Error updating credits for session ${sessionId}. Attempting to set if not exists.`, error);
     try {
         await setDoc(getSessionDocRef(sessionId), { credits: newCredits, lastUpdated: new Date().toISOString() }, { merge: true });

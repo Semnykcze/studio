@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, orderBy, limit, startAfter, DocumentSnapshot, where } from 'firebase/firestore';
 
 const SESSIONS_COLLECTION = 'userSessions';
@@ -10,6 +10,14 @@ const SESSIONS_COLLECTION = 'userSessions';
 const getSessionDocRef = (sessionId: string) => {
   if (!sessionId) throw new Error("Session ID cannot be empty.");
   return doc(db, SESSIONS_COLLECTION, sessionId);
+}
+
+function ensureFirebaseIsConfiguredAdmin() {
+  if (!isFirebaseConfigured()) {
+    const errorMessage = "Firebase is not configured on the server. Please update src/lib/firebase.ts with your project details. Admin functionality is disabled.";
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+  }
 }
 
 export interface UserSessionData {
@@ -22,18 +30,14 @@ export interface UserSessionData {
 
 export async function getUserSessions(
     itemsPerPage: number = 10, 
-    lastVisibleDoc?: UserSessionData // Pass the whole object to reconstruct snapshot if needed
+    lastVisibleDoc?: UserSessionData 
 ): Promise<{ sessions: UserSessionData[], newLastVisibleDoc?: UserSessionData | null }> {
+  ensureFirebaseIsConfiguredAdmin();
   try {
     const sessionsCollectionRef = collection(db, SESSIONS_COLLECTION);
     let q = query(sessionsCollectionRef, orderBy('lastUpdated', 'desc'), limit(itemsPerPage));
 
     if (lastVisibleDoc?.id) {
-      // To use startAfter, we need the actual DocumentSnapshot.
-      // A common workaround if you only have the ID is to fetch that one doc first.
-      // Or, if you stored a specific field like 'lastUpdated' timestamp accurately, you could query based on that.
-      // For simplicity here, if lastVisibleDoc.id is provided, we fetch it to get the snapshot.
-      // This is not the most performant for very large datasets but works for moderate amounts.
       const lastDocSnap = await getDoc(doc(db, SESSIONS_COLLECTION, lastVisibleDoc.id));
       if(lastDocSnap.exists()) {
         q = query(sessionsCollectionRef, orderBy('lastUpdated', 'desc'), startAfter(lastDocSnap), limit(itemsPerPage));
@@ -74,6 +78,7 @@ export async function getUserSessions(
 
 
 export async function adminUpdateUserCredits(sessionId: string, newCredits: number): Promise<number> {
+  ensureFirebaseIsConfiguredAdmin();
   if (newCredits < 0) {
     throw new Error("Credits cannot be negative.");
   }
@@ -95,6 +100,7 @@ export async function adminUpdateUserCredits(sessionId: string, newCredits: numb
 }
 
 export async function searchUserSessionById(sessionId: string): Promise<UserSessionData | null> {
+  ensureFirebaseIsConfiguredAdmin();
   if(!sessionId) return null;
   try {
     const sessionDocRef = getSessionDocRef(sessionId);

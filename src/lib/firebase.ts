@@ -7,7 +7,7 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 // IMPORTANT: Replace with your actual Firebase project configuration
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
   projectId: "YOUR_PROJECT_ID",
@@ -26,5 +26,13 @@ if (getApps().length === 0) {
   app = getApps()[0];
 }
 db = getFirestore(app);
+
+export const isFirebaseConfigured = (): boolean => {
+  return firebaseConfig.apiKey !== "YOUR_API_KEY" && 
+         firebaseConfig.projectId !== "YOUR_PROJECT_ID" &&
+         firebaseConfig.projectId !== "" && // Also check for empty string if user cleared it
+         firebaseConfig.apiKey !== "";
+};
+
 
 export { app, db };
