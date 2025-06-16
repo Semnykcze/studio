@@ -24,7 +24,7 @@ import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleO
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
-  Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, 
+  Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize
 } from 'lucide-react';
 
@@ -255,7 +255,7 @@ export default function VisionaryPrompterPage() {
       return;
     }
     if (minWords > maxWords) {
-      toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words > Max words." });
+      toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words cannot be greater than Max words." });
       return;
     }
 
@@ -507,10 +507,6 @@ export default function VisionaryPrompterPage() {
                     </CardTitle>
                     <CardDescription className="text-sm md:text-base">Upload your image and fine-tune generation settings.</CardDescription>
                 </div>
-                <Badge variant="outline" className="text-sm md:text-base py-1 px-3 rounded-full self-start sm:self-center border-primary/50 text-primary">
-                    <Coins className="mr-2 h-4 w-4 md:h-5 md:w-5" />
-                    Credits: {credits === null ? <LoadingSpinner size="0.8rem" /> : credits}
-                </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
