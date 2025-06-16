@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {ModelArgument} from 'genkit/model';
+import {ModelArgument, SafetySetting} from 'genkit/model';
 
 const AnalyzeImageGeneratePromptInputSchema = z.object({
   photoDataUri: z
@@ -23,6 +23,7 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
   maxWords: z.number().min(30).max(300).default(150).describe('The maximum number of words for the generated prompt (30-300).'),
   promptStyle: z.enum(['detailed', 'creative', 'keywords', 'cinematic', 'photorealistic', 'abstract']).default('detailed').describe('The desired style of the generated prompt: detailed, creative, keywords, cinematic, photorealistic, or abstract.'),
   outputLanguage: z.string().default('en').describe("The desired language for the generated prompt (e.g., en, cs, es, fr). Use ISO 639-1 codes or full language names like 'Czech', 'Spanish'."),
+  allowNsfw: z.boolean().default(false).describe('Whether to allow the generation of prompts that might lead to NSFW or sexually explicit content. If false, such content must be strictly avoided.'),
 });
 export type AnalyzeImageGeneratePromptInput = z.infer<typeof AnalyzeImageGeneratePromptInputSchema>;
 
@@ -47,11 +48,18 @@ Your task is to analyze the provided image using a powerful vision model and gen
 3.  Maximum Words for Output: {{{maxWords}}}
 4.  Output Prompt Style: "{{{promptStyle}}}"
 5.  Output Language: "{{{outputLanguage}}}"
+6.  Allow NSFW Content: {{{allowNsfw}}}
 
 **Critical Instructions:**
 -   **Word Count Range:** The generated output prompt (or descriptive text if Target Model is "General Text") **must strictly adhere** to the word count range: between {{{minWords}}} and {{{maxWords}}} words. Do NOT go below the minimum or exceed the maximum limit. Prioritize impactful details within this precise range.
 -   **Output Language:** The entire generated output **must be in the specified 'Output Language': {{{outputLanguage}}}**.
 -   **Analysis Depth:** Provide a thorough, insightful, and detailed analysis of the image content, including objects, their attributes, colors, textures, lighting, composition, artistic style, and overall mood.
+-   **Content Safety:**
+    {{#if allowNsfw}}
+    - You are permitted to generate prompts that may lead to content of a sensual or artistic nude nature if directly implied by the image and other parameters. However, avoid gratuitously explicit, illegal, or harmful content. Adhere to responsible AI guidelines.
+    {{else}}
+    - **Strictly avoid any NSFW (Not Safe For Work) content.** This includes, but is not limited to, sexually explicit descriptions, inappropriate nudity, violence, or other adult themes. The generated prompt must be suitable for all general audiences. If the image contains elements that could lead to an NSFW interpretation, focus your description on neutral, safe-for-work aspects only.
+    {{/if}}
 -   **Target Model Specifics:**
     -   If Target Model is "Flux.1 Dev": Focus on clear, descriptive language. Emphasize key subjects, actions, and the environment. Consider aspect ratio or specific camera angles if evident or important.
     -   If Target Model is "Midjourney": Use evocative and artistic phrases. Incorporate stylistic elements (e.g., "impressionistic painting", "sci-fi concept art"), mood descriptors, and details about lighting and color palettes. Consider adding parameters like \`--ar\` if the image aspect ratio is non-standard.
@@ -87,7 +95,23 @@ const analyzeImageGeneratePromptFlow = ai.defineFlow(
       throw new Error('Minimum words cannot be greater than maximum words.');
     }
 
-    const {output} = await analyzeImageGeneratePromptPrompt(input, {model});
+    const safetySettings: SafetySetting[] = [
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      // HARM_CATEGORY_CIVIC_INTEGRITY is not available for Gemini 1.5 Flash as per some tests, let's omit if problematic
+      // { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+    ];
+
+    if (input.allowNsfw) {
+      // Allows for artistic nudity or sensual themes, but still blocks overtly explicit content.
+      safetySettings.push({ category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' });
+    } else {
+      // Stricter setting for sexually explicit content when NSFW is not allowed.
+      safetySettings.push({ category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' });
+    }
+
+    const {output} = await analyzeImageGeneratePromptPrompt(input, {model, config: { safetySettings }});
     return output!;
   }
 );

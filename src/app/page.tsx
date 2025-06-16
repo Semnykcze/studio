@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch"; // Added Switch import
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
@@ -25,7 +26,7 @@ import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
-  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -42,6 +43,7 @@ interface HistoryEntry {
     maxWords: number;
     outputLanguage: string;
     photoFileName?: string;
+    allowNsfw: boolean; // Added allowNsfw to history
   };
   generatedPrompt: string;
 }
@@ -67,6 +69,7 @@ export default function VisionaryPrompterPage() {
   const [minWords, setMinWords] = useState<number>(25);
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
+  const [allowNsfw, setAllowNsfw] = useState<boolean>(false); // State for NSFW toggle
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
@@ -152,6 +155,7 @@ export default function VisionaryPrompterPage() {
             maxWords: entry.params?.maxWords || 150,
             outputLanguage: entry.params?.outputLanguage || 'English',
             photoFileName: entry.params?.photoFileName || undefined,
+            allowNsfw: typeof entry.params?.allowNsfw === 'boolean' ? entry.params.allowNsfw : false,
           },
           imagePreviewUrl: null, 
         }));
@@ -271,6 +275,7 @@ export default function VisionaryPrompterPage() {
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
         outputLanguage: selectedLanguage,
+        allowNsfw: allowNsfw, // Pass NSFW state
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
@@ -292,6 +297,7 @@ export default function VisionaryPrompterPage() {
           maxWords: maxWords,
           outputLanguage: selectedLanguage,
           photoFileName: imageFile.name,
+          allowNsfw: allowNsfw, // Save NSFW state to history
         },
         generatedPrompt: result.prompt,
       };
@@ -375,7 +381,7 @@ export default function VisionaryPrompterPage() {
       //setCredits(newCredits);
       //dispatchCreditsUpdate(newCredits);
       //localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
-      toast({ title: "Depth map generated!", description: "Experimental feature via fal.ai." });
+      toast({ title: "Depth map generation is currently disabled.", description: "This feature will be re-enabled soon." });
     } catch (error) {
       let desc = "Unknown error.";
       if (error instanceof Error) desc = error.message;
@@ -438,6 +444,7 @@ export default function VisionaryPrompterPage() {
     setMinWords(entry.params.minWords);
     setMaxWords(entry.params.maxWords);
     setSelectedLanguage(entry.params.outputLanguage);
+    setAllowNsfw(typeof entry.params.allowNsfw === 'boolean' ? entry.params.allowNsfw : false); // Load NSFW state
     setGeneratedPrompt(entry.generatedPrompt);
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
@@ -640,6 +647,18 @@ export default function VisionaryPrompterPage() {
                     <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
                     </div>
                 )}
+                <div className="flex items-center space-x-2 mb-3">
+                  <Switch
+                    id="allow-nsfw-switch"
+                    checked={allowNsfw}
+                    onCheckedChange={setAllowNsfw}
+                    disabled={anyLoading}
+                    aria-label="Toggle to allow potentially NSFW content in prompts"
+                  />
+                  <Label htmlFor="allow-nsfw-switch" className="text-sm text-muted-foreground cursor-pointer">
+                    Allow Potentially NSFW Content
+                  </Label>
+                </div>
                 <div className="mb-3 flex items-center justify-end space-x-1.5 border border-input rounded-md p-1 bg-muted/30">
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Magic Enhance Prompt">
                         {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Magic</span>
@@ -727,15 +746,15 @@ export default function VisionaryPrompterPage() {
               <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
                 <Layers className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> Depth Map (Experimental)
               </CardTitle>
-              <CardDescription>Generate a depth map via fal.ai. (1 Credit)</CardDescription>
+              <CardDescription>Generate a depth map. (1 Credit)</CardDescription>
             </CardHeader>
             <CardContent className="p-6 relative">
               <Alert variant="default" className="mb-4 bg-accent/10 border-accent/30 text-accent-foreground">
                 <Info className="h-4 w-4 text-accent-foreground/80" />
-                <AlertTitle className="font-semibold text-accent-foreground/90">Experimental Feature</AlertTitle>
-                <AlertDescription className="text-xs">Uses fal.ai (Depth Anything V2). Quality may vary. Requires FAL_KEY in .env.</AlertDescription>
+                <AlertTitle className="font-semibold text-accent-foreground/90">Experimental Feature (Currently Disabled)</AlertTitle>
+                <AlertDescription className="text-xs">Depth map generation is temporarily disabled. It will be re-enabled soon.</AlertDescription>
               </Alert>
-              <Button onClick={handleGenerateDepthMap} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
+              <Button onClick={handleGenerateDepthMap} disabled={true || anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
                 {isDepthMapLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Layers className="mr-2 h-4 w-4" />} Generate Depth Map
               </Button>
               {!uploadedImage && !isDepthMapLoading && (<p className="text-sm text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
@@ -746,7 +765,7 @@ export default function VisionaryPrompterPage() {
               )}
               {generatedDepthMap && !isDepthMapLoading && (
                 <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-2 animate-fade-in-fast">
-                  <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
+                  <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map"/>
                 </div>
               )}
               {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-sm text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
@@ -791,11 +810,12 @@ export default function VisionaryPrompterPage() {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-3 bg-muted/20">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-muted-foreground p-2 rounded-md border border-input bg-background/50">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-muted-foreground p-2 rounded-md border border-input bg-background/50">
                       <div><strong>Model:</strong> {entry.params.targetModel}</div>
                       <div><strong>Lang:</strong> {entry.params.outputLanguage}</div>
                       <div><strong>Style:</strong> {entry.params.promptStyle}</div>
                       <div><strong>Words:</strong> {entry.params.minWords}-{entry.params.maxWords}</div>
+                      <div><strong>NSFW:</strong> {entry.params.allowNsfw ? <Eye className="inline h-3.5 w-3.5 text-green-500" /> : <EyeOff className="inline h-3.5 w-3.5 text-red-500" />}</div>
                     </div>
                     <div className="relative">
                       <Textarea value={entry.generatedPrompt} readOnly className="min-h-[80px] text-xs bg-background border-input" />
