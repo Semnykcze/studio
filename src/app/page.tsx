@@ -18,8 +18,6 @@ import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins } from 'lucide-react';
-import { getCreditsForSession, updateCreditsForSession, initializeCreditsForSession } from './actions'; 
-import { firebaseConfig } from '@/lib/firebase'; // Import firebaseConfig
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -27,7 +25,7 @@ type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 interface HistoryEntry {
   id: string;
   timestamp: string;
-  imagePreviewUrl?: string | null; 
+  imagePreviewUrl?: string | null;
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
@@ -41,6 +39,7 @@ interface HistoryEntry {
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
 const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId';
+const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_';
 const INITIAL_CREDITS = 10;
 
 
@@ -64,15 +63,9 @@ export default function VisionaryPrompterPage() {
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   const [credits, setCredits] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  // Client-side check for Firebase configuration
-  const isFirebaseConfiguredClientSide = firebaseConfig.apiKey !== "YOUR_API_KEY" && 
-                                       firebaseConfig.projectId !== "YOUR_PROJECT_ID" &&
-                                       firebaseConfig.apiKey !== "" &&
-                                       firebaseConfig.projectId !== "";
 
   useEffect(() => {
     let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
@@ -82,39 +75,31 @@ export default function VisionaryPrompterPage() {
     }
     setSessionId(currentSessionId);
 
-    const fetchUserCredits = async (sid: string) => {
-      if (!isFirebaseConfiguredClientSide) {
-        setCredits(INITIAL_CREDITS); // Use local fallback
-        toast({
-          title: "Demo Mode Active",
-          description: "Firebase is not fully configured. Using local credits for this session (not saved online).",
-          duration: 7000,
-        });
-        return;
-      }
-
-      try {
-        let userCredits = await getCreditsForSession(sid);
-        if (userCredits === null) { // Check for null specifically, as undefined isn't typical from Firestore get
-          userCredits = await initializeCreditsForSession(sid, INITIAL_CREDITS);
+    const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${currentSessionId}`;
+    try {
+      const storedCredits = localStorage.getItem(creditsStorageKey);
+      if (storedCredits === null) {
+        setCredits(INITIAL_CREDITS);
+        localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
+      } else {
+        const parsedCredits = parseInt(storedCredits, 10);
+        if (isNaN(parsedCredits)) {
+            setCredits(INITIAL_CREDITS);
+            localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
+        } else {
+            setCredits(parsedCredits);
         }
-        setCredits(userCredits);
-      } catch (error) {
-        console.error("Error fetching/initializing credits:", error);
-        const errorMessage = error instanceof Error ? error.message : "Could not load or initialize your credits. Using fallback.";
-        toast({
-          variant: "destructive",
-          title: "Credit System Error",
-          description: errorMessage,
-        });
-        setCredits(INITIAL_CREDITS); // Fallback
       }
-    };
-
-    if (currentSessionId) {
-      fetchUserCredits(currentSessionId);
+    } catch (error) {
+      console.error("Error accessing localStorage for credits:", error);
+      setCredits(INITIAL_CREDITS); // Fallback
+      toast({
+        variant: "destructive",
+        title: "Credit System Error",
+        description: "Could not load credits from local storage. Using default.",
+      });
     }
-  }, [toast, isFirebaseConfiguredClientSide]); // Add isFirebaseConfiguredClientSide to dependency array
+  }, [toast]);
 
 
   useEffect(() => {
@@ -124,13 +109,13 @@ export default function VisionaryPrompterPage() {
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
-          imagePreviewUrl: null, 
+          imagePreviewUrl: null,
         }));
         setGenerationHistory(historyWithPlaceholders);
       }
     } catch (error) {
       console.error("Error loading history from localStorage:", error);
-      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); 
+      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
       toast({
         variant: "destructive",
         title: "Failed to load history",
@@ -141,14 +126,13 @@ export default function VisionaryPrompterPage() {
 
   useEffect(() => {
     const historyToStore = generationHistory.map(entry => {
-      const { imagePreviewUrl, ...rest } = entry; 
+      const { imagePreviewUrl, ...rest } = entry;
       return rest;
     });
     try {
-      if (generationHistory.length > 0) { 
+      if (generationHistory.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
       } else {
-        // If history is empty, remove it from localStorage to prevent empty array persistence or errors.
         if (localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY)) {
           localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
         }
@@ -178,7 +162,7 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) { 
+      if (file.size > 4 * 1024 * 1024) {
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -194,7 +178,7 @@ export default function VisionaryPrompterPage() {
         });
         return;
       }
-      
+
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -231,19 +215,17 @@ export default function VisionaryPrompterPage() {
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
-      
-      if (isFirebaseConfiguredClientSide) {
-        const newCredits = await updateCreditsForSession(sessionId, credits - 1);
-        setCredits(newCredits);
-      } else {
-        setCredits(prev => (prev !== null ? prev -1 : 0)); // Local decrement
-      }
+
+      const newCredits = credits - 1;
+      setCredits(newCredits);
+      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
+      localStorage.setItem(creditsStorageKey, newCredits.toString());
 
 
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage, 
+        imagePreviewUrl: uploadedImage,
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
@@ -282,7 +264,7 @@ export default function VisionaryPrompterPage() {
     try {
       const input: MagicPromptInput = {
         originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage, 
+        promptLanguage: selectedLanguage,
       };
       const result = await magicPrompt(input);
       setGeneratedPrompt(result.magicPrompt);
@@ -322,7 +304,7 @@ export default function VisionaryPrompterPage() {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (!uniqueId) { 
+        if (!uniqueId) {
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
         }
@@ -348,10 +330,10 @@ export default function VisionaryPrompterPage() {
     if (entry.imagePreviewUrl) {
       setUploadedImage(entry.imagePreviewUrl);
     } else {
-      setUploadedImage(null); 
+      setUploadedImage(null);
     }
-    setImageFile(null); 
-    
+    setImageFile(null);
+
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setMaxWords(entry.params.maxWords);
@@ -361,8 +343,8 @@ export default function VisionaryPrompterPage() {
     if (entry.imagePreviewUrl) {
         toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
     } else {
-        toast({ 
-            title: "Settings loaded from history", 
+        toast({
+            title: "Settings loaded from history",
             description: `${entry.params.photoFileName ? `Original image: ${entry.params.photoFileName}. ` : ''}Image data is not stored in history. Please re-upload the image if you want to generate a new prompt with it.`,
             duration: 5000,
         });
@@ -405,7 +387,7 @@ export default function VisionaryPrompterPage() {
           <CardContent className="space-y-4 md:space-y-6">
             <div className="space-y-2">
               <Label htmlFor="image-upload" className="text-sm md:text-base">Upload Image</Label>
-              <div 
+              <div
                 className="flex items-center justify-center w-full p-4 md:p-6 border-2 border-dashed rounded-lg cursor-pointer border-input hover:border-primary transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                 onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
@@ -421,16 +403,16 @@ export default function VisionaryPrompterPage() {
                   <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP up to 4MB</p>
                 </div>
               </div>
-              <Input 
-                id="image-upload" 
-                type="file" 
-                accept="image/png, image/jpeg, image/gif, image/webp" 
-                onChange={handleImageUpload} 
+              <Input
+                id="image-upload"
+                type="file"
+                accept="image/png, image/jpeg, image/gif, image/webp"
+                onChange={handleImageUpload}
                 ref={fileInputRef}
-                className="hidden" 
+                className="hidden"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="target-model-select" className="text-sm md:text-base">Target Prompt Model</Label>
               <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)}>
@@ -445,7 +427,7 @@ export default function VisionaryPrompterPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="language-select" className="text-sm md:text-base flex items-center">
                 <Languages className="mr-2 h-4 w-4 text-primary" /> Output Language
@@ -477,7 +459,7 @@ export default function VisionaryPrompterPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="max-words-slider" className="text-sm md:text-base flex items-center">
@@ -497,9 +479,9 @@ export default function VisionaryPrompterPage() {
                <p className="text-xs text-muted-foreground">Range: 50 - 250 words.</p>
             </div>
 
-            <Button 
-              onClick={handleGeneratePrompt} 
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits === null || credits <= 0} 
+            <Button
+              onClick={handleGeneratePrompt}
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits === null || credits <= 0}
               className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
               aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
@@ -664,8 +646,9 @@ export default function VisionaryPrompterPage() {
 
       <footer className="mt-12 text-center text-xs md:text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
-        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId} {!isFirebaseConfiguredClientSide && "(Demo Mode - credits not saved online)"}</p>}
+        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId}</p>}
       </footer>
     </div>
   );
 }
+    
