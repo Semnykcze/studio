@@ -28,7 +28,7 @@ import {
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize
 } from 'lucide-react';
 
-type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text';
+type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
 
 interface HistoryEntry {
@@ -214,6 +214,8 @@ export default function VisionaryPrompterPage() {
       { value: 'Stable Diffusion', label: 'Stable Diffusion', icon: Lightbulb },
       { value: 'DALL-E 3', label: 'DALL-E 3', icon: Lightbulb },
       { value: 'Leonardo AI', label: 'Leonardo AI', icon: Lightbulb },
+      { value: 'Imagen4', label: 'Imagen 4', icon: Lightbulb },
+      { value: 'Imagen3', label: 'Imagen 3', icon: Lightbulb },
       { value: 'General Text', label: 'General Text', icon: FileText },
   ];
 

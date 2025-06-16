@@ -18,7 +18,7 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
     .describe(
       "A photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  targetModel: z.string().default('Flux.1 Dev').describe('The target model for which the prompt should be optimized (e.g., Flux.1 Dev, Midjourney, Stable Diffusion, DALL-E 3, Leonardo AI, General Text).'),
+  targetModel: z.string().default('Flux.1 Dev').describe('The target model for which the prompt should be optimized (e.g., Flux.1 Dev, Midjourney, Stable Diffusion, DALL-E 3, Leonardo AI, Imagen4, Imagen3, General Text).'),
   minWords: z.number().min(10).max(100).default(25).describe('The minimum number of words for the generated prompt (10-100).'),
   maxWords: z.number().min(30).max(300).default(150).describe('The maximum number of words for the generated prompt (30-300).'),
   promptStyle: z.enum(['detailed', 'creative', 'keywords', 'cinematic', 'photorealistic', 'abstract']).default('detailed').describe('The desired style of the generated prompt: detailed, creative, keywords, cinematic, photorealistic, or abstract.'),
@@ -58,6 +58,7 @@ Your task is to analyze the provided image using a powerful vision model and gen
     -   If Target Model is "Stable Diffusion": Be precise with keywords. Use commas to separate distinct concepts. Consider adding (weights) if certain elements are more important. Mention specific artists or styles if discernible.
     -   If Target Model is "DALL-E 3": Emphasize natural language descriptions, detailed scenes, and specific artistic styles. DALL-E 3 generally performs well with longer, more descriptive prompts. Use clear, unambiguous language.
     -   If Target Model is "Leonardo AI": Use strong keywords, specify artistic styles (e.g., 'character design', 'photorealistic', 'isometric', 'concept art'), and highlight key visual elements and moods. Mention specific Leonardo.Ai models or features if known and relevant to the image.
+    -   If Target Model is "Imagen4" or "Imagen3": These are advanced Google models. Generate highly descriptive prompts that detail the scene, subjects, actions, environment, artistic style, and mood. These models respond well to natural language and can interpret complex requests. Focus on vivid imagery and clear articulation of desired elements.
     -   If Target Model is "General Text": Provide a rich, descriptive text about the image, suitable for a general audience, adhering to the chosen Prompt Style and word count range.
 -   **Prompt Style Specifics:**
     -   If Prompt Style is "detailed": Create a very detailed output in {{{outputLanguage}}}, capturing as much visual information as possible including specific objects, their attributes, colors, textures, lighting, composition, and any artistic style, all within the specified word count range. Structure it as a coherent paragraph or set of descriptive phrases.
