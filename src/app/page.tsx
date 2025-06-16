@@ -12,13 +12,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
+import { generateDepthMap, type GenerateDepthMapInput, type GenerateDepthMapOutput } from '@/ai/flows/generate-depth-map-flow';
+import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
+
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3 } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush as PaintbrushIcon, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -69,6 +73,12 @@ export default function VisionaryPrompterPage() {
   
   const [isEditingSessionId, setIsEditingSessionId] = useState<boolean>(false);
   const [newSessionIdInput, setNewSessionIdInput] = useState<string>("");
+
+  const [generatedDepthMap, setGeneratedDepthMap] = useState<string | null>(null);
+  const [isDepthMapLoading, setIsDepthMapLoading] = useState<boolean>(false);
+
+  const [imageStyleAnalysis, setImageStyleAnalysis] = useState<AnalyzeImageStyleOutput | null>(null);
+  const [isStyleAnalysisLoading, setIsStyleAnalysisLoading] = useState<boolean>(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +222,8 @@ export default function VisionaryPrompterPage() {
       };
       reader.readAsDataURL(file);
       setGeneratedPrompt(''); 
+      setGeneratedDepthMap(null); 
+      setImageStyleAnalysis(null);
     }
   };
 
@@ -348,6 +360,96 @@ export default function VisionaryPrompterPage() {
     }
   };
 
+  const handleGenerateDepthMap = async () => {
+    if (!uploadedImage) {
+      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first to generate a depth map." });
+      return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
+      return;
+    }
+    if (credits === null || credits <= 0) {
+      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits for this feature." });
+      return;
+    }
+
+    setIsDepthMapLoading(true);
+    setGeneratedDepthMap(null);
+    try {
+      const input: GenerateDepthMapInput = { photoDataUri: uploadedImage };
+      const result = await generateDepthMap(input);
+      setGeneratedDepthMap(result.depthMapDataUri);
+
+      const newCredits = credits - 1;
+      setCredits(newCredits);
+      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
+      localStorage.setItem(creditsStorageKey, newCredits.toString());
+
+      toast({ title: "Depth map generated successfully!", description: "Note: This is an experimental feature." });
+    } catch (error) {
+      console.error("Error generating depth map:", error);
+      let errorMessage = "An unknown error occurred while generating the depth map.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      toast({
+        variant: "destructive",
+        title: "Error Generating Depth Map",
+        description: errorMessage,
+      });
+    } finally {
+      setIsDepthMapLoading(false);
+    }
+  };
+  
+  const handleAnalyzeImageStyle = async () => {
+    if (!uploadedImage) {
+      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first to analyze its style." });
+      return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
+      return;
+    }
+    if (credits === null || credits <= 0) {
+      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits for this feature." });
+      return;
+    }
+
+    setIsStyleAnalysisLoading(true);
+    setImageStyleAnalysis(null);
+    try {
+      const input: AnalyzeImageStyleInput = { photoDataUri: uploadedImage };
+      const result = await analyzeImageStyle(input);
+      setImageStyleAnalysis(result);
+
+      const newCredits = credits - 1;
+      setCredits(newCredits);
+      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
+      localStorage.setItem(creditsStorageKey, newCredits.toString());
+
+      toast({ title: "Image style analysis complete!" });
+    } catch (error) {
+      console.error("Error analyzing image style:", error);
+      let errorMessage = "An unknown error occurred during style analysis.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      toast({
+        variant: "destructive",
+        title: "Error Analyzing Image Style",
+        description: errorMessage,
+      });
+    } finally {
+      setIsStyleAnalysisLoading(false);
+    }
+  };
+
 
   const handleCopyPrompt = (textToCopy: string, uniqueId?: string) => {
     if (!textToCopy) return;
@@ -388,6 +490,9 @@ export default function VisionaryPrompterPage() {
     setMaxWords(entry.params.maxWords);
     setSelectedLanguage(entry.params.outputLanguage);
     setGeneratedPrompt(entry.generatedPrompt);
+    setGeneratedDepthMap(null); // Clear depth map when loading from history
+    setImageStyleAnalysis(null); // Clear style analysis when loading from history
+
 
     if (entry.imagePreviewUrl) {
         toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
@@ -418,6 +523,8 @@ export default function VisionaryPrompterPage() {
     toast({ title: "Session ID Changed", description: `Switched from ${oldSessionId || 'N/A'} to ${newId}. Credits for the new session will be loaded.` });
   };
 
+  const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading;
+
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-background text-foreground">
@@ -429,12 +536,12 @@ export default function VisionaryPrompterPage() {
           </h1>
         </div>
         <p className="text-md sm:text-lg md:text-xl text-muted-foreground px-2">
-          Upload an image, and let AI craft the perfect prompt in your chosen language and style.
+          Upload an image, and let AI craft the perfect prompt and analyze its features.
         </p>
       </header>
 
       <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-        <Card className="shadow-xl rounded-lg">
+        <Card className="shadow-xl rounded-lg md:col-span-1">
           <CardHeader>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <div className="flex-grow mb-2 sm:mb-0">
@@ -481,7 +588,7 @@ export default function VisionaryPrompterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="target-model-select" className="text-sm md:text-base">Target Prompt Model</Label>
-              <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)}>
+              <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
                 <SelectTrigger id="target-model-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select target model" />
                 </SelectTrigger>
@@ -498,7 +605,7 @@ export default function VisionaryPrompterPage() {
               <Label htmlFor="language-select" className="text-sm md:text-base flex items-center">
                 <Languages className="mr-2 h-4 w-4 text-primary" /> Output Language
               </Label>
-              <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)}>
+              <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
                 <SelectTrigger id="language-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select language" />
                 </SelectTrigger>
@@ -512,9 +619,9 @@ export default function VisionaryPrompterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="prompt-style-select" className="text-sm md:text-base flex items-center">
-                 <Paintbrush className="mr-2 h-4 w-4 text-primary" /> Prompt Style
+                 <PaintbrushIcon className="mr-2 h-4 w-4 text-primary" /> Prompt Style
               </Label>
-              <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)}>
+              <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
                 <SelectTrigger id="prompt-style-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select prompt style" />
                 </SelectTrigger>
@@ -541,13 +648,14 @@ export default function VisionaryPrompterPage() {
                 value={[maxWords]}
                 onValueChange={(value: number[]) => setMaxWords(value[0])}
                 className="w-full"
+                disabled={anyLoading}
               />
                <p className="text-xs text-muted-foreground">Range: 50 - 250 words.</p>
             </div>
 
             <Button
               onClick={handleGeneratePrompt}
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || isExtendingLoading || credits === null || credits <= 0}
+              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
               className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
               aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
@@ -564,7 +672,7 @@ export default function VisionaryPrompterPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-xl rounded-lg">
+        <Card className="shadow-xl rounded-lg md:col-span-1">
           <CardHeader>
             <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
               <ImageIcon className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
@@ -601,7 +709,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={anyLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Enhance prompt with magic"
                     >
@@ -612,7 +720,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleExtendPrompt}
                       title="Extend Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={anyLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Extend prompt"
                     >
@@ -623,7 +731,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={anyLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Translate prompt"
                     >
@@ -634,7 +742,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={anyLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Copy prompt"
                     >
@@ -651,6 +759,122 @@ export default function VisionaryPrompterPage() {
               )}
           </CardContent>
         </Card>
+
+        <Card className="shadow-xl rounded-lg md:col-span-1 relative">
+          <CardHeader>
+            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
+              <Palette className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
+              Image Style Analysis
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base">Identify artistic style, colors, composition and mood. (Costs 1 credit)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              onClick={handleAnalyzeImageStyle}
+              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
+              className="w-full"
+              variant="outline"
+              aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}
+            >
+              {isStyleAnalysisLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Palette className="mr-2 h-4 w-4" />}
+              Analyze Image Style
+            </Button>
+            {!uploadedImage && !isStyleAnalysisLoading && (
+                <p className="text-sm text-muted-foreground text-center py-4">Upload an image to enable style analysis.</p>
+            )}
+            {imageStyleAnalysis && !isStyleAnalysisLoading && (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <h4 className="font-semibold text-primary">Identified Style:</h4>
+                  <p className="text-muted-foreground">{imageStyleAnalysis.identifiedStyle || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-primary">Overall Mood:</h4>
+                  <p className="text-muted-foreground">{imageStyleAnalysis.overallMood || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-primary">Dominant Colors:</h4>
+                  {imageStyleAnalysis.dominantColors && imageStyleAnalysis.dominantColors.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {imageStyleAnalysis.dominantColors.map((color, index) => (
+                        <Badge key={index} variant="secondary">{color}</Badge>
+                      ))}
+                    </div>
+                  ) : <p className="text-muted-foreground">N/A</p>}
+                </div>
+                <div>
+                  <h4 className="font-semibold text-primary">Composition Notes:</h4>
+                  <p className="text-muted-foreground">{imageStyleAnalysis.compositionNotes || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-primary">Style Keywords:</h4>
+                  {imageStyleAnalysis.styleKeywords && imageStyleAnalysis.styleKeywords.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {imageStyleAnalysis.styleKeywords.map((keyword, index) => (
+                      <Badge key={index} variant="outline">{keyword}</Badge>
+                    ))}
+                  </div>
+                  ) : <p className="text-muted-foreground">N/A</p>}
+                </div>
+              </div>
+            )}
+            {isStyleAnalysisLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
+                <LoadingSpinner size="2rem" message="Analyzing image style..." />
+              </div>
+            )}
+             {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
+              <p className="text-sm text-center text-destructive mt-2">Not enough credits for style analysis.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-xl rounded-lg md:col-span-1 relative">
+          <CardHeader>
+            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
+              <Layers className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
+              Depth Map Analysis
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base">
+              Generate an experimental depth map of your image. (Costs 1 credit)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <Alert variant="default" className="bg-accent/30 border-accent/50">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertTitle className="font-semibold text-primary/90">Experimental Feature</AlertTitle>
+              <AlertDescription className="text-muted-foreground text-xs">
+                Depth map generation uses fal.ai (Depth Anything V2). Quality may vary. Ensure FAL_KEY_ID and FAL_KEY_SECRET are in .env.
+              </AlertDescription>
+            </Alert>
+            <Button
+              onClick={handleGenerateDepthMap}
+              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
+              className="w-full"
+              variant="outline"
+              aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}
+            >
+              {isDepthMapLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Layers className="mr-2 h-4 w-4" />}
+              Generate Depth Map
+            </Button>
+            {!uploadedImage && !isDepthMapLoading && (
+                 <p className="text-sm text-muted-foreground text-center py-4">Upload an image to enable depth map generation.</p>
+            )}
+            {generatedDepthMap && !isDepthMapLoading && (
+              <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-4">
+                <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
+              </div>
+            )}
+            {isDepthMapLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
+                <LoadingSpinner size="2rem" message="Generating depth map..." />
+              </div>
+            )}
+             {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
+              <p className="text-sm text-center text-destructive mt-2">Not enough credits for depth map.</p>
+            )}
+          </CardContent>
+        </Card>
       </main>
 
       {generationHistory.length > 0 && (
@@ -660,7 +884,7 @@ export default function VisionaryPrompterPage() {
               <History className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
               <CardTitle className="text-xl md:text-2xl font-headline">Generation History</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 self-start sm:self-center">
+            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 self-start sm:self-center" disabled={anyLoading}>
               <Trash2 className="mr-2 h-4 w-4" /> Clear History
             </Button>
           </CardHeader>
@@ -668,7 +892,7 @@ export default function VisionaryPrompterPage() {
             <Accordion type="single" collapsible className="w-full">
               {generationHistory.map((entry, index) => (
                 <AccordionItem value={`item-${index}`} key={entry.id} className="border-b-input">
-                  <AccordionTrigger className="hover:no-underline py-3 md:py-4">
+                  <AccordionTrigger className="hover:no-underline py-3 md:py-4" disabled={anyLoading}>
                     <div className="flex items-center space-x-2 md:space-x-3 w-full">
                       <div className="w-12 h-9 md:w-16 md:h-12 relative rounded overflow-hidden border border-input shrink-0">
                         {entry.imagePreviewUrl ? (
@@ -706,11 +930,12 @@ export default function VisionaryPrompterPage() {
                         onClick={() => handleCopyPrompt(entry.generatedPrompt, entry.id)}
                         className="absolute top-1 right-1 md:top-2 md:right-2 text-muted-foreground hover:text-primary h-6 w-6 md:h-7 md:w-7"
                         aria-label="Copy prompt from history"
+                        disabled={anyLoading}
                       >
                         <Copy className="h-3 w-3 md:h-4 md:h-4" />
                       </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)}>
+                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading}>
                       <DownloadCloud className="mr-2 h-3 w-3 md:h-4 md:h-4" /> Load these settings & prompt
                     </Button>
                   </AccordionContent>
@@ -734,6 +959,7 @@ export default function VisionaryPrompterPage() {
                 setIsEditingSessionId(true);
               }}
               title="Edit Session ID"
+              disabled={anyLoading}
             >
               {sessionId} <Edit3 className="ml-1 h-3 w-3" />
             </Button>
@@ -750,12 +976,13 @@ export default function VisionaryPrompterPage() {
               placeholder="Enter new Session ID"
               className="text-xs h-8 w-full max-w-xs sm:w-auto"
               onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }}
+              disabled={anyLoading}
             />
             <div className="flex gap-2 mt-1 sm:mt-0">
-              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs">
+              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs" disabled={anyLoading}>
                 Set ID
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs">
+              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs" disabled={anyLoading}>
                 Cancel
               </Button>
             </div>
