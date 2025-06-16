@@ -188,11 +188,11 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) { 
+      if (file.size > 50 * 1024 * 1024) { 
         toast({
           variant: "destructive",
           title: "Image too large",
-          description: "Please upload an image smaller than 4MB.",
+          description: "Please upload an image smaller than 50MB.",
         });
         return;
       }
@@ -466,7 +466,7 @@ export default function VisionaryPrompterPage() {
                   <p className="mt-2 text-xs md:text-sm text-muted-foreground">
                     <span className="font-semibold text-primary">Click to upload</span> or drag and drop
                   </p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP up to 4MB</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP up to 50MB</p>
                 </div>
               </div>
               <Input
