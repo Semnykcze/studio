@@ -91,3 +91,13 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* For smooth image preview appearance */
+.animate-fade-in-fast {
+  animation: fade-in-fast 0.2s ease-out;
+}
+
+@keyframes fade-in-fast {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

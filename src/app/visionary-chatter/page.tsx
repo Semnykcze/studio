@@ -1,37 +1,47 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { visionaryChatter, type VisionaryChatterInput, type Message as GenkitMessage } from '@/ai/flows/visionary-chatter-flow';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { visionaryChatter, type VisionaryChatterInput, type Message as GenkitMessage, PartSchema, PartType } from '@/ai/flows/visionary-chatter-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { Bot, User, Send, MessageCircle } from 'lucide-react';
+import { Bot, User, Send, MessageCircle, Paperclip, XCircle, Image as ImageIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
+  imagePreviews?: string[]; // For displaying user-uploaded images in the chat
   timestamp: Date;
 }
+
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_IMAGES_COUNT = 5;
 
 export default function VisionaryChatterPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  // Greet user on initial load
   useEffect(() => {
     setMessages([
       {
         id: 'initial-greeting',
         sender: 'ai',
-        text: "Hello! I'm Visionary Chatter. How can I help you with your image generation prompts today?",
+        text: "Hello! I'm Visionary Chatter. How can I help you with your image generation prompts today? Feel free to upload images for context!",
         timestamp: new Date(),
       },
     ]);
@@ -43,40 +53,123 @@ export default function VisionaryChatterPage() {
     }
   }, [messages]);
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      const totalImages = uploadedImages.length + newFiles.length;
+
+      if (totalImages > MAX_IMAGES_COUNT) {
+        toast({ variant: 'destructive', title: 'Too many images', description: `You can upload a maximum of ${MAX_IMAGES_COUNT} images.` });
+        return;
+      }
+
+      const validFiles: File[] = [];
+      const newPreviews: string[] = [];
+
+      newFiles.forEach(file => {
+        if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+          toast({ variant: 'destructive', title: 'Image too large', description: `${file.name} exceeds ${MAX_IMAGE_SIZE_MB}MB.` });
+          return;
+        }
+        if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+          toast({ variant: 'destructive', title: 'Invalid file type', description: `${file.name} is not a supported image type.` });
+          return;
+        }
+        validFiles.push(file);
+        newPreviews.push(URL.createObjectURL(file));
+      });
+
+      setUploadedImages(prev => [...prev, ...validFiles]);
+      setImagePreviews(prev => [...prev, ...newPreviews]);
+    }
+    if (event.target) { // Reset file input to allow re-uploading the same file
+        event.target.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => {
+      const newPreviews = prev.filter((_, i) => i !== index);
+      // Revoke object URL for the removed image
+      if (prev[index]) URL.revokeObjectURL(prev[index] as string);
+      return newPreviews;
+    });
+  };
+
+  const convertFilesToDataUris = async (files: File[]): Promise<string[]> => {
+    const dataUris: string[] = [];
+    for (const file of files) {
+      const reader = new FileReader();
+      dataUris.push(await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      }));
+    }
+    return dataUris;
+  };
+
   const handleSendMessage = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    if (!currentMessage.trim() || isLoading) return;
+    if ((!currentMessage.trim() && uploadedImages.length === 0) || isLoading) return;
 
-    const userMessage: ChatMessage = {
+    const userMessageText = currentMessage.trim();
+    const userMessageTimestamp = new Date();
+
+    // Display user message immediately with previews
+    const userMessageEntry: ChatMessage = {
       id: Date.now().toString() + '-user',
       sender: 'user',
-      text: currentMessage.trim(),
-      timestamp: new Date(),
+      text: userMessageText,
+      imagePreviews: [...imagePreviews], // Pass current previews
+      timestamp: userMessageTimestamp,
     };
-
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+    setMessages((prevMessages) => [...prevMessages, userMessageEntry]);
+    
+    // Clear inputs for next message
     setCurrentMessage('');
+    // Previews are cleared after message is sent, along with uploadedImages
+    
     setIsLoading(true);
+
+    let photoDataUris: string[] = [];
+    try {
+      photoDataUris = await convertFilesToDataUris(uploadedImages);
+    } catch (error) {
+      console.error("Error converting images to data URIs:", error);
+      toast({ variant: "destructive", title: "Image Processing Error", description: "Could not process uploaded images." });
+      setIsLoading(false);
+      // Do not clear uploadedImages/previews here, user might want to retry
+      return;
+    }
+    
+    // Clean up local previews and files after successful conversion
+    imagePreviews.forEach(preview => URL.revokeObjectURL(preview));
+    setImagePreviews([]);
+    setUploadedImages([]);
+
 
     // Prepare history for Genkit flow
     const genkitHistory: GenkitMessage[] = messages
-      .filter(msg => msg.id !== 'initial-greeting') // Exclude initial greeting from history sent to AI
-      .map((msg) => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }],
-      }));
+      .filter(msg => msg.id !== 'initial-greeting')
+      .map((msg): GenkitMessage => {
+        const parts: PartType[] = [{ text: msg.text }];
+        // For user messages in history that had images, we would need to store their data URIs.
+        // For simplicity, this example assumes history images are not re-sent to the AI,
+        // only the current turn's images. If history images were needed, ChatMessage would need to store dataURIs.
+        return {
+          role: msg.sender === 'user' ? 'user' : 'model',
+          parts: parts,
+        };
+      });
     
-    // Add the current user message to the history being sent
-    genkitHistory.push({
-        role: 'user',
-        parts: [{text: userMessage.text}]
-    });
-
-
     try {
       const input: VisionaryChatterInput = {
-        message: userMessage.text,
-        history: genkitHistory.slice(0, -1), // Send history *before* current user message
+        message: userMessageText,
+        photoDataUris: photoDataUris.length > 0 ? photoDataUris : undefined,
+        history: genkitHistory,
       };
       const result = await visionaryChatter(input);
 
@@ -92,7 +185,7 @@ export default function VisionaryChatterPage() {
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '-error',
         sender: 'ai',
-        text: "Sorry, I encountered an error. Please try again.",
+        text: "Sorry, I encountered an error processing your request. Please try again.",
         timestamp: new Date(),
       };
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
@@ -112,7 +205,7 @@ export default function VisionaryChatterPage() {
           </h1>
         </div>
         <p className="text-md sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-          Your AI assistant for crafting perfect image generation prompts.
+          Your AI assistant for crafting image generation prompts. Now with image understanding!
         </p>
       </header>
 
@@ -132,7 +225,7 @@ export default function VisionaryChatterPage() {
               }`}
             >
               {msg.sender === 'ai' && (
-                <Avatar className="h-8 w-8 self-start border border-primary/30">
+                <Avatar className="h-8 w-8 self-start border border-primary/30 shrink-0">
                   <AvatarFallback className="bg-primary/20 text-primary">
                     <Bot size={18} />
                   </AvatarFallback>
@@ -145,13 +238,22 @@ export default function VisionaryChatterPage() {
                     : 'bg-card border border-border text-card-foreground rounded-bl-none'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                {msg.imagePreviews && msg.imagePreviews.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    {msg.imagePreviews.map((previewUrl, index) => (
+                      <div key={index} className="relative w-24 h-24 rounded-md overflow-hidden border border-input">
+                        <Image src={previewUrl} alt={`Uploaded preview ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="chat image preview"/>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
                 <p className={`text-xs mt-1.5 ${msg.sender === 'user' ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/80 text-left'}`}>
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
               {msg.sender === 'user' && (
-                <Avatar className="h-8 w-8 self-start border border-input">
+                <Avatar className="h-8 w-8 self-start border border-input shrink-0">
                    <AvatarFallback className="bg-muted">
                     <User size={18} />
                   </AvatarFallback>
@@ -159,7 +261,7 @@ export default function VisionaryChatterPage() {
               )}
             </div>
           ))}
-          {isLoading && (
+          {isLoading && messages[messages.length -1]?.sender === 'user' && (
             <div className="flex justify-start items-center gap-2.5 mb-4">
                <Avatar className="h-8 w-8 self-start border border-primary/30">
                   <AvatarFallback className="bg-primary/20 text-primary">
@@ -173,23 +275,71 @@ export default function VisionaryChatterPage() {
           )}
         </ScrollArea>
 
-        <CardContent className="p-4 border-t border-border bg-muted/30">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-3">
+        <CardFooter className="p-4 border-t border-border bg-muted/30">
+          {imagePreviews.length > 0 && (
+            <div className="mb-3 p-2 border border-input rounded-md bg-background w-full">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Selected Images ({imagePreviews.length}/{MAX_IMAGES_COUNT}):</p>
+              <div className="flex flex-wrap gap-2">
+                {imagePreviews.map((preview, index) => (
+                  <div key={index} className="relative w-16 h-16 animate-fade-in-fast">
+                    <Image src={preview} alt={`Preview ${index}`} layout="fill" objectFit="cover" className="rounded-md border border-input" data-ai-hint="image preview"/>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive/80 text-destructive-foreground hover:bg-destructive"
+                      onClick={() => removeImage(index)}
+                      aria-label="Remove image"
+                    >
+                      <XCircle size={14} />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <form onSubmit={handleSendMessage} className="flex items-center gap-3 w-full">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="icon" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || uploadedImages.length >= MAX_IMAGES_COUNT}
+              className="h-10 w-10 shrink-0"
+              title={`Attach images (up to ${MAX_IMAGES_COUNT})`}
+              aria-label="Attach images"
+            >
+              <Paperclip size={18} />
+            </Button>
+            <Input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              multiple
+              accept="image/png, image/jpeg, image/gif, image/webp"
+              className="hidden"
+              aria-hidden="true"
+            />
             <Input
               ref={inputRef}
               type="text"
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
-              placeholder="Ask about prompt techniques, parameters, or styles..."
+              placeholder="Ask about prompt techniques, or describe an image..."
               className="flex-grow text-sm h-10 focus-visible:ring-primary"
               disabled={isLoading}
               aria-label="Your message"
             />
-            <Button type="submit" size="icon" disabled={isLoading || !currentMessage.trim()} className="h-10 w-10 shrink-0" aria-label="Send message">
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={isLoading || (!currentMessage.trim() && uploadedImages.length === 0)} 
+              className="h-10 w-10 shrink-0" 
+              aria-label="Send message"
+            >
               {isLoading ? <LoadingSpinner size="1rem" /> : <Send size={18} />}
             </Button>
           </form>
-        </CardContent>
+        </CardFooter>
       </Card>
     </div>
   );
