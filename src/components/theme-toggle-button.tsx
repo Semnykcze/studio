@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 
 export function ThemeToggleButton() {
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // This effect runs once on mount to set the initial theme
-    // from localStorage or system preference.
+    setMounted(true);
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialTheme = storedTheme || (systemPrefersDark ? 'dark' : 'light');
@@ -18,8 +18,7 @@ export function ThemeToggleButton() {
   }, []);
 
   useEffect(() => {
-    // This effect runs whenever currentTheme changes to update
-    // the class on <html> and persist to localStorage.
+    if (!mounted) return;
     if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -27,27 +26,28 @@ export function ThemeToggleButton() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [currentTheme]);
+  }, [currentTheme, mounted]);
 
   const toggleTheme = () => {
     setCurrentTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
-  // To prevent hydration mismatch, we can render a placeholder or null on the server,
-  // or ensure the button's initial state matches what useEffect will set it to.
-  // For simplicity, we'll let useEffect handle the initial correct rendering.
-  // The button will briefly show the default 'light' icon before useEffect updates.
+  if (!mounted) {
+    // Render a placeholder or null on the server/initial client render to avoid mismatch
+    return <Button variant="ghost" size="icon" className="w-9 h-9 opacity-0" disabled aria-label="Toggle theme" />;
+  }
 
   return (
     <Button 
-      variant="ghost" 
+      variant="outline" 
       size="icon" 
       onClick={toggleTheme} 
       aria-label={`Switch to ${currentTheme === 'light' ? 'dark' : 'light'} mode`}
-      className="w-9 h-9 text-primary hover:text-accent-foreground hover:bg-accent"
+      className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground"
+      title={`Switch to ${currentTheme === 'light' ? 'Dark' : 'Light'} Mode`}
     >
       {currentTheme === 'light' ? (
-        <Moon className="h-[1.2rem] w-[1.2rem]" />
+        <Moon className="h-[1.1rem] w-[1.1rem]" />
       ) : (
         <Sun className="h-[1.2rem] w-[1.2rem]" />
       )}

@@ -18,11 +18,15 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
-import { generateDepthMap, type GenerateDepthMapInput, type GenerateDepthMapOutput } from '@/ai/flows/generate-depth-map-flow';
+import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info, Film, Aperture, Shapes } from 'lucide-react';
+import { 
+  UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
+  Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, 
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Minimize
+} from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
@@ -50,11 +54,9 @@ const INITIAL_CREDITS = 10;
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 
-
 function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
-
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -65,11 +67,13 @@ export default function VisionaryPrompterPage() {
   const [minWords, setMinWords] = useState<number>(25);
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
+  
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isExtendingLoading, setIsExtendingLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
+  
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -83,7 +87,6 @@ export default function VisionaryPrompterPage() {
 
   const [imageStyleAnalysis, setImageStyleAnalysis] = useState<AnalyzeImageStyleOutput | null>(null);
   const [isStyleAnalysisLoading, setIsStyleAnalysisLoading] = useState<boolean>(false);
-
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -109,7 +112,6 @@ export default function VisionaryPrompterPage() {
       } else {
         const parsedCredits = parseInt(storedCredits, 10);
         if (isNaN(parsedCredits)) {
-            console.warn(`Invalid credits found in localStorage for ${creditsStorageKey}, resetting.`);
             setCredits(INITIAL_CREDITS);
             localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
         } else {
@@ -117,16 +119,14 @@ export default function VisionaryPrompterPage() {
         }
       }
     } catch (error) {
-      console.error("Error accessing localStorage for credits:", error);
       setCredits(INITIAL_CREDITS); 
       toast({
         variant: "destructive",
         title: "Credit System Error",
-        description: "Could not load credits. Using default or previously loaded.",
+        description: "Could not load credits.",
       });
     }
   }, [sessionId, toast]);
-
 
   useEffect(() => {
     try {
@@ -154,13 +154,8 @@ export default function VisionaryPrompterPage() {
       } catch (removeError) {
         console.error("Failed to remove corrupted history from localStorage:", removeError);
       }
-      toast({
-        variant: "destructive",
-        title: "Failed to load history",
-        description: "History data might be corrupted and has been cleared.",
-      });
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     const historyToStore = generationHistory.map(entry => {
@@ -179,51 +174,48 @@ export default function VisionaryPrompterPage() {
       }
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
-      if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22)) {
-        toast({
-          variant: "destructive",
-          title: "Failed to save history",
-          description: "LocalStorage quota exceeded. Please clear some space or reduce history items.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Failed to save history",
-          description: "Could not save generation history due to an unexpected error.",
-        });
-      }
     }
-  }, [generationHistory, toast]);
+  }, [generationHistory]);
 
 
-  const languageOptions: { value: string; label: string }[] = [
-    { value: 'English', label: 'English' },
-    { value: 'Czech', label: 'Čeština (Czech)' },
-    { value: 'Spanish', label: 'Español (Spanish)' },
-    { value: 'French', label: 'Français (French)' },
-    { value: 'German', label: 'Deutsch (German)' },
-    { value: 'Japanese', label: '日本語 (Japanese)' },
-    { value: 'Korean', label: '한국어 (Korean)' },
-    { value: 'Chinese', label: '中文 (Chinese)' },
+  const languageOptions: { value: string; label: string; icon?: React.ElementType }[] = [
+    { value: 'English', label: 'English', icon: Globe },
+    { value: 'Czech', label: 'Čeština', icon: Globe },
+    { value: 'Spanish', label: 'Español', icon: Globe },
+    { value: 'French', label: 'Français', icon: Globe },
+    { value: 'German', label: 'Deutsch', icon: Globe },
+    { value: 'Japanese', label: '日本語', icon: Globe },
+    { value: 'Korean', label: '한국어', icon: Globe },
+    { value: 'Chinese', label: '中文', icon: Globe },
+  ];
+
+  const promptStyleOptions: { value: PromptStyleType; label: string; icon: React.ElementType }[] = [
+    { value: 'detailed', label: 'Detailed', icon: FileText },
+    { value: 'creative', label: 'Creative', icon: Sparkles },
+    { value: 'keywords', label: 'Keywords', icon: SlidersHorizontal },
+    { value: 'cinematic', label: 'Cinematic', icon: Film },
+    { value: 'photorealistic', label: 'Photorealistic', icon: Aperture },
+    { value: 'abstract', label: 'Abstract', icon: Shapes },
+  ];
+
+  const targetModelOptions: { value: TargetModelType; label: string; icon: React.ElementType}[] = [
+      { value: 'Flux.1 Dev', label: 'Flux.1 Dev', icon: Lightbulb },
+      { value: 'Midjourney', label: 'Midjourney', icon: Lightbulb },
+      { value: 'Stable Diffusion', label: 'Stable Diffusion', icon: Lightbulb },
+      { value: 'DALL-E 3', label: 'DALL-E 3', icon: Lightbulb },
+      { value: 'Leonardo AI', label: 'Leonardo AI', icon: Lightbulb },
+      { value: 'General Text', label: 'General Text', icon: FileText },
   ];
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.size > 50 * 1024 * 1024) { 
-        toast({
-          variant: "destructive",
-          title: "Image too large",
-          description: "Please upload an image smaller than 50MB.",
-        });
+        toast({ variant: "destructive", title: "Image too large", description: "Max 50MB." });
         return;
       }
       if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: "Invalid file type",
-          description: "Please upload a JPG, PNG, WEBP or GIF image.",
-        });
+        toast({ variant: "destructive", title: "Invalid file type", description: "Use JPG, PNG, WEBP or GIF." });
         return;
       }
 
@@ -249,18 +241,13 @@ export default function VisionaryPrompterPage() {
       return;
     }
     if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits to generate prompts." });
+      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits." });
       return;
     }
     if (minWords > maxWords) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Word Count Range",
-        description: "Minimum words cannot be greater than maximum words. Please adjust the sliders.",
-      });
+      toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words > Max words." });
       return;
     }
-
 
     setIsLoading(true);
     setGeneratedPrompt('');
@@ -281,7 +268,6 @@ export default function VisionaryPrompterPage() {
       const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
       localStorage.setItem(creditsStorageKey, newCredits.toString());
 
-
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
@@ -299,18 +285,10 @@ export default function VisionaryPrompterPage() {
       setGenerationHistory(prev => [newHistoryEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
 
     } catch (error) {
-      console.error("Error generating prompt:", error);
-      let errorMessage = "An unknown error occurred. Please try again.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      toast({
-        variant: "destructive",
-        title: "Error generating prompt",
-        description: errorMessage,
-      });
+      let errorMessage = "An unknown error occurred.";
+      if (error instanceof Error) errorMessage = error.message;
+      else if (typeof error === 'string') errorMessage = error;
+      toast({ variant: "destructive", title: "Error generating prompt", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
@@ -318,21 +296,15 @@ export default function VisionaryPrompterPage() {
 
   const handleMagicPrompt = async () => {
     if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to enhance", description: "Please generate a prompt first." });
-      return;
+      toast({ variant: "destructive", title: "No prompt to enhance" }); return;
     }
     setIsMagicLoading(true);
     try {
-      const input: MagicPromptInput = {
-        originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage, 
-      };
-      const result = await magicPrompt(input);
+      const result = await magicPrompt({ originalPrompt: generatedPrompt, promptLanguage: selectedLanguage });
       setGeneratedPrompt(result.magicPrompt); 
-      toast({ title: "Prompt enhanced with magic!" });
+      toast({ title: "Prompt enhanced!" });
     } catch (error) {
-      console.error("Error enhancing prompt with magic:", error);
-      toast({ variant: "destructive", title: "Error enhancing prompt", description: error instanceof Error ? error.message : String(error) });
+      toast({ variant: "destructive", title: "Magic enhancement failed", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsMagicLoading(false);
     }
@@ -340,22 +312,15 @@ export default function VisionaryPrompterPage() {
 
   const handleExtendPrompt = async () => {
     if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to extend", description: "Please generate a prompt first." });
-      return;
+      toast({ variant: "destructive", title: "No prompt to extend" }); return;
     }
     setIsExtendingLoading(true);
     try {
-      const input: ExtendPromptInput = {
-        originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage,
-        maxWords: maxWords, 
-      };
-      const result = await extendPrompt(input);
+      const result = await extendPrompt({ originalPrompt: generatedPrompt, promptLanguage: selectedLanguage, maxWords: maxWords });
       setGeneratedPrompt(result.extendedPrompt);
       toast({ title: "Prompt extended!" });
     } catch (error) {
-      console.error("Error extending prompt:", error);
-      toast({ variant: "destructive", title: "Error extending prompt", description: error instanceof Error ? error.message : String(error) });
+      toast({ variant: "destructive", title: "Prompt extension failed", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsExtendingLoading(false);
     }
@@ -363,21 +328,15 @@ export default function VisionaryPrompterPage() {
 
   const handleTranslatePrompt = async () => {
     if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to translate", description: "Please generate a prompt first." });
-      return;
+      toast({ variant: "destructive", title: "No prompt to translate" }); return;
     }
     setIsTranslateLoading(true);
     try {
-      const input: TranslatePromptInput = {
-        originalPrompt: generatedPrompt,
-        targetLanguage: selectedLanguage, 
-      };
-      const result = await translatePrompt(input);
+      const result = await translatePrompt({ originalPrompt: generatedPrompt, targetLanguage: selectedLanguage });
       setGeneratedPrompt(result.translatedPrompt); 
       toast({ title: `Prompt translated to ${selectedLanguage}!`});
     } catch (error) {
-      console.error("Error translating prompt:", error);
-      toast({ variant: "destructive", title: "Error translating prompt", description: error instanceof Error ? error.message : String(error) });
+      toast({ variant: "destructive", title: "Translation failed", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsTranslateLoading(false);
     }
@@ -385,47 +344,29 @@ export default function VisionaryPrompterPage() {
 
   const handleGenerateDepthMap = async () => {
     if (!uploadedImage) {
-      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first to generate a depth map." });
-      return;
+      toast({ variant: "destructive", title: "No image for depth map" }); return;
     }
     if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
-      return;
+      toast({ variant: "destructive", title: "Session Error" }); return;
     }
     if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits for this feature." });
-      return;
+      toast({ variant: "destructive", title: "No credits for depth map" }); return;
     }
 
     setIsDepthMapLoading(true);
     setGeneratedDepthMap(null);
     try {
-      const input: GenerateDepthMapInput = { photoDataUri: uploadedImage };
-      const result = await generateDepthMap(input);
+      const result = await generateDepthMap({ photoDataUri: uploadedImage });
       setGeneratedDepthMap(result.depthMapDataUri);
-
       const newCredits = credits - 1;
       setCredits(newCredits);
-      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
-      localStorage.setItem(creditsStorageKey, newCredits.toString());
-
-      toast({ title: "Depth map generated successfully!", description: "Note: This is an experimental feature." });
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      toast({ title: "Depth map generated!", description: "Experimental feature via fal.ai." });
     } catch (error) {
-      console.error("Error generating depth map:", error);
-      let errorMessage = "An unknown error occurred while generating the depth map.";
-       if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (typeof error === 'object' && error && 'message' in error) {
-         errorMessage = String((error as {message: string}).message);
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Error Generating Depth Map",
-        description: errorMessage,
-      });
+      let desc = "Unknown error.";
+      if (error instanceof Error) desc = error.message;
+      else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message:string}).message);
+      toast({ variant: "destructive", title: "Depth map failed", description: desc });
     } finally {
       setIsDepthMapLoading(false);
     }
@@ -433,84 +374,51 @@ export default function VisionaryPrompterPage() {
   
   const handleAnalyzeImageStyle = async () => {
     if (!uploadedImage) {
-      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first to analyze its style." });
-      return;
+      toast({ variant: "destructive", title: "No image for style analysis" }); return;
     }
     if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
-      return;
+      toast({ variant: "destructive", title: "Session Error" }); return;
     }
     if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits for this feature." });
-      return;
+      toast({ variant: "destructive", title: "No credits for style analysis" }); return;
     }
 
     setIsStyleAnalysisLoading(true);
     setImageStyleAnalysis(null);
     try {
-      const input: AnalyzeImageStyleInput = { photoDataUri: uploadedImage };
-      const result = await analyzeImageStyle(input);
+      const result = await analyzeImageStyle({ photoDataUri: uploadedImage });
       setImageStyleAnalysis(result);
-
       const newCredits = credits - 1;
       setCredits(newCredits);
-      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
-      localStorage.setItem(creditsStorageKey, newCredits.toString());
-
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Image style analysis complete!" });
     } catch (error) {
-      console.error("Error analyzing image style:", error);
-      let errorMessage = "An unknown error occurred during style analysis.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      toast({
-        variant: "destructive",
-        title: "Error Analyzing Image Style",
-        description: errorMessage,
-      });
+      toast({ variant: "destructive", title: "Style analysis failed", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsStyleAnalysisLoading(false);
     }
   };
 
-
-  const handleCopyPrompt = (textToCopy: string, uniqueId?: string) => {
+  const handleCopyPrompt = (textToCopy: string) => {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (!uniqueId) { 
-          setIsCopied(true);
-          setTimeout(() => setIsCopied(false), 2000);
-        }
-        toast({ title: "Prompt copied to clipboard!" });
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+        toast({ title: "Prompt copied!" });
       })
-      .catch(err => {
-        console.error("Failed to copy prompt:", err);
-        toast({ variant: "destructive", title: "Failed to copy prompt" });
-      });
+      .catch(() => toast({ variant: "destructive", title: "Copy failed" }));
   };
 
   const clearHistory = () => {
     setGenerationHistory([]);
-    try {
-      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
-    } catch (error) {
-       console.error("Error clearing history from localStorage:", error);
-    }
-    toast({ title: "Generation history cleared." });
+    try { localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); } catch (e) {}
+    toast({ title: "History cleared." });
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    if (entry.imagePreviewUrl) {
-      setUploadedImage(entry.imagePreviewUrl);
-    } else {
-      setUploadedImage(null);
-    }
+    setUploadedImage(entry.imagePreviewUrl || null);
     setImageFile(null); 
-
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setMinWords(entry.params.minWords);
@@ -520,469 +428,373 @@ export default function VisionaryPrompterPage() {
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
 
-
-    if (entry.imagePreviewUrl) {
-        toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
-    } else {
-        toast({
-            title: "Settings loaded from history",
-            description: `${entry.params.photoFileName ? `Original image: ${entry.params.photoFileName}. ` : ''}Image data is not stored in history. Please re-upload the image if you want to generate a new prompt with it.`,
-            duration: 5000, 
-        });
-    }
+    toast({
+      title: "Loaded from history",
+      description: `${entry.params.photoFileName || 'Image preview shown.'}${!entry.imagePreviewUrl ? ' Re-upload image for new generation.' : ''}`,
+      duration: 5000, 
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSessionIdChange = () => {
     if (newSessionIdInput.trim() === "") {
-      toast({ variant: "destructive", title: "Invalid Session ID", description: "Session ID cannot be empty." });
-      return;
+      toast({ variant: "destructive", title: "Invalid Session ID" }); return;
     }
-    const oldSessionId = sessionId;
     const newId = newSessionIdInput.trim();
-    
     localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
     setSessionId(newId); 
-    
     setIsEditingSessionId(false);
     setNewSessionIdInput(""); 
-
-    toast({ title: "Session ID Changed", description: `Switched from ${oldSessionId || 'N/A'} to ${newId}. Credits for the new session will be loaded.` });
+    toast({ title: "Session ID Changed", description: `Switched to ${newId}.` });
   };
   
   const handleWordCountChange = (newRange: number[]) => {
-    let newMin = newRange[0];
-    let newMax = newRange[1];
-
-    if (newMin < OVERALL_MIN_WORDS) newMin = OVERALL_MIN_WORDS;
-    if (newMax > OVERALL_MAX_WORDS) newMax = OVERALL_MAX_WORDS;
+    let newMin = Math.max(OVERALL_MIN_WORDS, newRange[0]);
+    let newMax = Math.min(OVERALL_MAX_WORDS, newRange[1]);
     if (newMin > newMax) newMin = newMax; 
-
     setMinWords(newMin);
     setMaxWords(newMax);
   };
 
-
   const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading;
 
+  const renderSelectTrigger = (icon: React.ElementType, placeholder: string, value?: string) => (
+    <SelectTrigger className="w-full text-sm md:text-base pl-3 pr-2 py-2 h-10 data-[placeholder]:text-muted-foreground">
+       <div className="flex items-center gap-2">
+        {React.createElement(icon, { className: "h-4 w-4 text-primary/80"})}
+        <SelectValue placeholder={placeholder}>{value}</SelectValue>
+      </div>
+    </SelectTrigger>
+  );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-background text-foreground">
-      <header className="w-full max-w-5xl mb-8 md:mb-12 text-center">
-        <div className="flex items-center justify-center space-x-3 mb-2">
-          <BrainCircuit className="h-10 w-10 md:h-12 md:w-12 text-primary" />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-bold text-primary">
+    <div className="container mx-auto p-4 sm:p-6 md:p-8 print:p-0">
+      <header className="w-full mb-8 md:mb-12 text-center">
+        <div className="inline-flex items-center justify-center space-x-3 mb-3 bg-primary/10 px-4 py-2 rounded-full">
+          <BrainCircuit className="h-8 w-8 md:h-10 md:w-10 text-primary" />
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-bold text-primary tracking-tight">
             Visionary Prompter
           </h1>
         </div>
-        <p className="text-md sm:text-lg md:text-xl text-muted-foreground px-2">
-          Upload an image, and let AI craft the perfect prompt and analyze its features.
+        <p className="text-md sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+          Upload an image, configure parameters, and let AI craft the perfect prompt & analyze its style.
         </p>
       </header>
 
-      <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-        <Card className="shadow-xl rounded-lg md:col-span-1">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        {/* Column 1: Configuration & Image Preview */}
+        <div className="lg:col-span-2 space-y-6 md:space-y-8">
+          <Card className="shadow-lg rounded-xl overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b border-border">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <div className="flex-grow mb-2 sm:mb-0">
-                    <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
-                    <UploadCloud className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
-                    Configure & Generate
+                    <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
+                    <Settings2 className="mr-2.5 h-5 w-5 md:h-6 md:w-6" />
+                    Image & Prompt Configuration
                     </CardTitle>
-                    <CardDescription className="text-sm md:text-base">Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
+                    <CardDescription className="text-sm md:text-base">Upload your image and fine-tune generation settings.</CardDescription>
                 </div>
-                <Badge variant="outline" className="text-sm md:text-base ml-0 sm:ml-4 shrink-0 self-start sm:self-center">
-                    <Coins className="mr-2 h-4 w-4 md:h-5 md:w-5 text-primary" />
+                <Badge variant="outline" className="text-sm md:text-base py-1 px-3 rounded-full self-start sm:self-center border-primary/50 text-primary">
+                    <Coins className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                     Credits: {credits === null ? <LoadingSpinner size="0.8rem" /> : credits}
                 </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 md:space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="image-upload" className="text-sm md:text-base">Upload Image</Label>
-              <div
-                className="flex items-center justify-center w-full p-4 md:p-6 border-2 border-dashed rounded-lg cursor-pointer border-input hover:border-primary transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-                onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
-                tabIndex={0}
-                role="button"
-                aria-label="Upload image"
-              >
-                <div className="text-center">
-                  <UploadCloud className="mx-auto h-10 w-10 md:h-12 md:w-12 text-muted-foreground" />
-                  <p className="mt-2 text-xs md:text-sm text-muted-foreground">
-                    <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-                  </p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP up to 50MB</p>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Image Upload Section */}
+              <div className="space-y-3">
+                <Label htmlFor="image-upload" className="text-base font-medium flex items-center">
+                  <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload Image
+                </Label>
+                <div
+                  className={`aspect-video w-full rounded-lg border-2 border-dashed transition-all duration-300 ease-in-out
+                    ${uploadedImage ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary bg-muted/20'} 
+                    flex items-center justify-center cursor-pointer group relative overflow-hidden`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Upload image"
+                >
+                  {uploadedImage ? (
+                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-1" data-ai-hint="user uploaded" />
+                  ) : (
+                    <div className="text-center p-4">
+                      <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        <span className="font-semibold text-primary">Click or Drag & Drop</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP (Max 50MB)</p>
+                    </div>
+                  )}
+                </div>
+                <Input id="image-upload" type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageUpload} ref={fileInputRef} className="hidden" />
+              </div>
+
+              {/* Configuration Options Section */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="target-model-select" className="text-sm font-medium mb-1.5 block">Target AI Model</Label>
+                  <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
+                    {renderSelectTrigger(Lightbulb, "Select target model", selectedTargetModel)}
+                    <SelectContent>
+                      {targetModelOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="language-select" className="text-sm font-medium mb-1.5 block">Output Language</Label>
+                  <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
+                    {renderSelectTrigger(Languages, "Select language", languageOptions.find(l => l.value === selectedLanguage)?.label)}
+                    <SelectContent>
+                      {languageOptions.map(lang => (
+                        <SelectItem key={lang.value} value={lang.value}>
+                           <div className="flex items-center gap-2">
+                            {lang.icon && React.createElement(lang.icon, { className: "h-4 w-4 opacity-70"})} {lang.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="prompt-style-select" className="text-sm font-medium mb-1.5 block">Prompt Style</Label>
+                  <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
+                     {renderSelectTrigger(Paintbrush, "Select prompt style", promptStyleOptions.find(p => p.value === selectedPromptStyle)?.label)}
+                    <SelectContent>
+                      {promptStyleOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2 pt-1">
+                    <div className="flex justify-between items-center mb-1">
+                        <Label htmlFor="word-count-slider" className="text-sm font-medium">Prompt Word Count</Label>
+                        <Badge variant="secondary" className="text-xs font-medium text-primary px-2 py-0.5">{minWords} - {maxWords} words</Badge>
+                    </div>
+                    <Slider
+                        id="word-count-slider"
+                        min={OVERALL_MIN_WORDS} max={OVERALL_MAX_WORDS} step={5}
+                        value={[minWords, maxWords]} onValueChange={handleWordCountChange}
+                        className="w-full [&>span:nth-child(2)]:bg-primary [&>span:nth-child(3)]:bg-primary"
+                        disabled={anyLoading}
+                        aria-label={`Word count range slider, current range ${minWords} to ${maxWords} words.`}
+                    />
+                    <p className="text-xs text-muted-foreground">Adjust min & max word count. Overall range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
                 </div>
               </div>
-              <Input
-                id="image-upload"
-                type="file"
-                accept="image/png, image/jpeg, image/gif, image/webp"
-                onChange={handleImageUpload}
-                ref={fileInputRef}
-                className="hidden"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="target-model-select" className="text-sm md:text-base">Target Prompt Model</Label>
-              <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
-                <SelectTrigger id="target-model-select" className="w-full text-sm md:text-base">
-                  <SelectValue placeholder="Select target model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Flux.1 Dev">Flux.1 Dev</SelectItem>
-                  <SelectItem value="Midjourney">Midjourney</SelectItem>
-                  <SelectItem value="Stable Diffusion">Stable Diffusion</SelectItem>
-                  <SelectItem value="DALL-E 3">DALL-E 3</SelectItem>
-                  <SelectItem value="Leonardo AI">Leonardo AI</SelectItem>
-                  <SelectItem value="General Text">General Text</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="language-select" className="text-sm md:text-base flex items-center">
-                <Languages className="mr-2 h-4 w-4 text-primary" /> Output Language
-              </Label>
-              <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
-                <SelectTrigger id="language-select" className="w-full text-sm md:text-base">
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {languageOptions.map(lang => (
-                    <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="prompt-style-select" className="text-sm md:text-base flex items-center">
-                 <Paintbrush className="mr-2 h-4 w-4 text-primary" /> Prompt Style
-              </Label>
-              <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
-                <SelectTrigger id="prompt-style-select" className="w-full text-sm md:text-base">
-                  <SelectValue placeholder="Select prompt style" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="detailed"><Paintbrush className="mr-2 h-4 w-4 inline-block" />Detailed</SelectItem>
-                  <SelectItem value="creative"><Sparkles className="mr-2 h-4 w-4 inline-block" />Creative</SelectItem>
-                  <SelectItem value="keywords"><SlidersHorizontal className="mr-2 h-4 w-4 inline-block" />Keywords-based</SelectItem>
-                  <SelectItem value="cinematic"><Film className="mr-2 h-4 w-4 inline-block" />Cinematic</SelectItem>
-                  <SelectItem value="photorealistic"><Aperture className="mr-2 h-4 w-4 inline-block" />Photorealistic</SelectItem>
-                  <SelectItem value="abstract"><Shapes className="mr-2 h-4 w-4 inline-block" />Abstract</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1">
-                <Label htmlFor="word-count-slider" className="text-sm md:text-base flex items-center">
-                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Prompt Word Count Range
-                </Label>
-                <span className="text-xs md:text-sm font-medium text-primary">{minWords} - {maxWords} words</span>
-              </div>
-              <Slider
-                id="word-count-slider"
-                min={OVERALL_MIN_WORDS}
-                max={OVERALL_MAX_WORDS}
-                step={5}
-                value={[minWords, maxWords]}
-                onValueChange={handleWordCountChange}
-                className="w-full"
-                disabled={anyLoading}
-              />
-               <p className="text-xs text-muted-foreground">Selected range: {minWords} - {maxWords} words. Overall possible: {OVERALL_MIN_WORDS} - {OVERALL_MAX_WORDS} words.</p>
-            </div>
-
-
-            <Button
-              onClick={handleGeneratePrompt}
-              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-              className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
-              aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
-            >
-              {isLoading ? (
-                <LoadingSpinner size="1.25rem" className="mr-2" />
-              ) : (
-                <Wand2 className="mr-2 h-5 w-5" />
-              )}
-              Generate Prompt
-            </Button>
-             {credits !== null && credits <= 0 && (
-              <p className="text-sm text-center text-destructive">You have run out of credits. </p>
+            </CardContent>
+            <CardFooter className="p-6 bg-muted/30 border-t border-border">
+              <Button
+                onClick={handleGeneratePrompt}
+                disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
+                className="w-full text-base py-3 rounded-md font-semibold"
+                size="lg"
+                aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
+              >
+                {isLoading ? <LoadingSpinner size="1.1rem" className="mr-2" /> : <Wand2 className="mr-2 h-5 w-5" />}
+                Generate Visionary Prompt
+              </Button>
+            </CardFooter>
+             {credits !== null && credits <= 0 && !anyLoading && (
+              <p className="text-sm text-center text-destructive pb-4 px-6">You have run out of credits. Please manage your session or contact support.</p>
             )}
-          </CardContent>
-        </Card>
+          </Card>
 
-        <Card className="shadow-xl rounded-lg md:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
-              <ImageIcon className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
-              Preview & Prompt
-            </CardTitle>
-            <CardDescription className="text-sm md:text-base">Your uploaded image and the AI-generated prompt.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 md:space-y-6 relative">
-            {uploadedImage ? (
-              <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input">
-                <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" data-ai-hint="user uploaded" />
-              </div>
-            ) : (
-              <div className="aspect-video w-full flex items-center justify-center bg-muted rounded-lg border border-dashed border-input">
-                <p className="text-muted-foreground">Image preview will appear here</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="generated-prompt" className="text-sm md:text-base">Generated Prompt</Label>
-              <div className="relative">
+          {/* Generated Prompt Section */}
+          {(generatedPrompt || isLoading) && (
+            <Card className="shadow-lg rounded-xl">
+              <CardHeader className="border-b border-border">
+                <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
+                  <Lightbulb className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> AI Generated Prompt
+                </CardTitle>
+                <CardDescription>Your crafted prompt. Use the tools to refine or copy it.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 relative">
+                {isLoading && !generatedPrompt && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
+                    <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
+                    </div>
+                )}
+                <div className="mb-3 flex items-center justify-end space-x-1.5 border border-input rounded-md p-1 bg-muted/30">
+                    <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Magic Enhance Prompt">
+                        {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Magic</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleExtendPrompt} title="Extend Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Extend Prompt">
+                        {isExtendingLoading ? <LoadingSpinner size="0.9rem" /> : <Maximize className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Extend</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Translate Prompt">
+                        {isTranslateLoading ? <LoadingSpinner size="0.9rem" /> : <Globe className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Translate</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleCopyPrompt(generatedPrompt)} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-8 px-2" aria-label="Copy Prompt">
+                        {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />} <span className="ml-1.5 hidden sm:inline">Copy</span>
+                    </Button>
+                </div>
                 <Textarea
                   id="generated-prompt"
                   value={generatedPrompt}
                   readOnly
                   placeholder={isLoading ? "Generating your visionary prompt..." : "Your AI-generated prompt will appear here..."}
-                  className="min-h-[120px] md:min-h-[150px] text-sm md:text-base bg-muted/50 focus-visible:ring-accent rounded-md"
+                  className="min-h-[150px] md:min-h-[180px] text-sm md:text-base bg-background focus-visible:ring-primary rounded-md border-input"
                   aria-live="polite"
                 />
-                {generatedPrompt && !isLoading && (
-                  <div className="absolute top-2 right-2 flex space-x-1 bg-card/80 backdrop-blur-sm p-1 rounded-md shadow-sm">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleMagicPrompt}
-                      title="Magic Prompt"
-                      disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1" 
-                      aria-label="Enhance prompt with magic"
-                    >
-                      {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-4 w-4" />}
-                    </Button>
-                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleExtendPrompt}
-                      title="Extend Prompt"
-                      disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
-                      aria-label="Extend prompt"
-                    >
-                      {isExtendingLoading ? <LoadingSpinner size="0.8rem" /> : <Edit3 className="h-4 w-4" />}
-                    </Button>
-                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleTranslatePrompt}
-                      title="Translate Prompt"
-                      disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
-                      aria-label="Translate prompt"
-                    >
-                      {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopyPrompt(generatedPrompt)}
-                      title="Copy Prompt"
-                      disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
-                      aria-label="Copy prompt"
-                    >
-                      {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-             {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
-                  <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Column 2: Analysis Tools */}
+        <div className="lg:col-span-1 space-y-6 md:space-y-8">
+          <Card className="shadow-lg rounded-xl">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
+                <Palette className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> Image Style Analysis
+              </CardTitle>
+              <CardDescription>Identify artistic style, colors, mood. (1 Credit)</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 relative">
+              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
+                {isStyleAnalysisLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Paintbrush className="mr-2 h-4 w-4" />} Analyze Style
+              </Button>
+              {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-sm text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
+              {isStyleAnalysisLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
+                  <LoadingSpinner size="2rem" message="Analyzing style..." />
                 </div>
               )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-xl rounded-lg md:col-span-1 relative">
-          <CardHeader>
-            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
-              <Palette className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
-              Image Style Analysis
-            </CardTitle>
-            <CardDescription className="text-sm md:text-base">Identify artistic style, colors, composition and mood. (Costs 1 credit)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={handleAnalyzeImageStyle}
-              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-              className="w-full"
-              variant="outline"
-              aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}
-            >
-              {isStyleAnalysisLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Palette className="mr-2 h-4 w-4" />}
-              Analyze Image Style
-            </Button>
-            {!uploadedImage && !isStyleAnalysisLoading && (
-                <p className="text-sm text-muted-foreground text-center py-4">Upload an image to enable style analysis.</p>
-            )}
-            {imageStyleAnalysis && !isStyleAnalysisLoading && (
-              <div className="space-y-3 text-sm">
-                <div>
-                  <h4 className="font-semibold text-primary">Identified Style:</h4>
-                  <p className="text-muted-foreground">{imageStyleAnalysis.identifiedStyle || 'N/A'}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-primary">Overall Mood:</h4>
-                  <p className="text-muted-foreground">{imageStyleAnalysis.overallMood || 'N/A'}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-primary">Dominant Colors:</h4>
-                  {imageStyleAnalysis.dominantColors && imageStyleAnalysis.dominantColors.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {imageStyleAnalysis.dominantColors.map((color, index) => (
-                        <Badge key={index} variant="secondary">{color}</Badge>
-                      ))}
-                    </div>
-                  ) : <p className="text-muted-foreground">N/A</p>}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-primary">Composition Notes:</h4>
-                  <p className="text-muted-foreground">{imageStyleAnalysis.compositionNotes || 'N/A'}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-primary">Style Keywords:</h4>
-                  {imageStyleAnalysis.styleKeywords && imageStyleAnalysis.styleKeywords.length > 0 ? (
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {imageStyleAnalysis.styleKeywords.map((keyword, index) => (
-                      <Badge key={index} variant="outline">{keyword}</Badge>
-                    ))}
+              {imageStyleAnalysis && !isStyleAnalysisLoading && (
+                <div className="space-y-3 text-sm animate-fade-in">
+                  <div className="p-3 bg-muted/30 rounded-md border border-input">
+                    <h4 className="font-semibold text-primary mb-1">Identified Style:</h4>
+                    <p className="text-foreground">{imageStyleAnalysis.identifiedStyle || 'N/A'}</p>
                   </div>
-                  ) : <p className="text-muted-foreground">N/A</p>}
+                  <div className="p-3 bg-muted/30 rounded-md border border-input">
+                    <h4 className="font-semibold text-primary mb-1">Overall Mood:</h4>
+                    <p className="text-foreground">{imageStyleAnalysis.overallMood || 'N/A'}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-md border border-input">
+                    <h4 className="font-semibold text-primary mb-1.5">Dominant Colors:</h4>
+                    {imageStyleAnalysis.dominantColors && imageStyleAnalysis.dominantColors.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {imageStyleAnalysis.dominantColors.map((color, index) => ( <Badge key={index} variant="secondary" className="font-normal">{color}</Badge> ))}
+                      </div>
+                    ) : <p className="text-muted-foreground">N/A</p>}
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-md border border-input">
+                    <h4 className="font-semibold text-primary mb-1">Composition Notes:</h4>
+                    <p className="text-foreground">{imageStyleAnalysis.compositionNotes || 'N/A'}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-md border border-input">
+                    <h4 className="font-semibold text-primary mb-1.5">Style Keywords:</h4>
+                    {imageStyleAnalysis.styleKeywords && imageStyleAnalysis.styleKeywords.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {imageStyleAnalysis.styleKeywords.map((keyword, index) => ( <Badge key={index} variant="outline" className="font-normal">{keyword}</Badge> ))}
+                    </div>
+                    ) : <p className="text-muted-foreground">N/A</p>}
+                  </div>
                 </div>
-              </div>
-            )}
-            {isStyleAnalysisLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
-                <LoadingSpinner size="2rem" message="Analyzing image style..." />
-              </div>
-            )}
-             {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
-              <p className="text-sm text-center text-destructive mt-2">Not enough credits for style analysis.</p>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-sm text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
+            </CardContent>
+          </Card>
 
-        <Card className="shadow-xl rounded-lg md:col-span-1 relative">
-          <CardHeader>
-            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
-              <Layers className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
-              Depth Map Analysis
-            </CardTitle>
-            <CardDescription className="text-sm md:text-base">
-              Generate an experimental depth map of your image using fal.ai. (Costs 1 credit)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-             <Alert variant="default" className="bg-accent/30 border-accent/50">
-              <Info className="h-4 w-4 text-primary" />
-              <AlertTitle className="font-semibold text-primary/90">Experimental Feature</AlertTitle>
-              <AlertDescription className="text-muted-foreground text-xs">
-                Depth map generation uses fal.ai (Depth Anything V2). Quality may vary. Ensure FAL_KEY_ID and FAL_KEY_SECRET (or FAL_KEY) are in .env for fal.ai authentication.
-              </AlertDescription>
-            </Alert>
-            <Button
-              onClick={handleGenerateDepthMap}
-              disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-              className="w-full"
-              variant="outline"
-              aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}
-            >
-              {isDepthMapLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Layers className="mr-2 h-4 w-4" />}
-              Generate Depth Map
-            </Button>
-            {!uploadedImage && !isDepthMapLoading && (
-                 <p className="text-sm text-muted-foreground text-center py-4">Upload an image to enable depth map generation.</p>
-            )}
-            {generatedDepthMap && !isDepthMapLoading && (
-              <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-4">
-                <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
-              </div>
-            )}
-            {isDepthMapLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-lg z-10">
-                <LoadingSpinner size="2rem" message="Generating depth map..." />
-              </div>
-            )}
-             {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
-              <p className="text-sm text-center text-destructive mt-2">Not enough credits for depth map.</p>
-            )}
-          </CardContent>
-        </Card>
-      </main>
+          <Card className="shadow-lg rounded-xl">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="text-xl md:text-2xl font-headline flex items-center text-primary">
+                <Layers className="mr-2.5 h-5 w-5 md:h-6 md:w-6" /> Depth Map (Experimental)
+              </CardTitle>
+              <CardDescription>Generate a depth map via fal.ai. (1 Credit)</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 relative">
+              <Alert variant="default" className="mb-4 bg-accent/10 border-accent/30 text-accent-foreground">
+                <Info className="h-4 w-4 text-accent-foreground/80" />
+                <AlertTitle className="font-semibold text-accent-foreground/90">Experimental Feature</AlertTitle>
+                <AlertDescription className="text-xs">Uses fal.ai (Depth Anything V2). Quality may vary. Requires FAL_KEY in .env.</AlertDescription>
+              </Alert>
+              <Button onClick={handleGenerateDepthMap} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
+                {isDepthMapLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Layers className="mr-2 h-4 w-4" />} Generate Depth Map
+              </Button>
+              {!uploadedImage && !isDepthMapLoading && (<p className="text-sm text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
+              {isDepthMapLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-card/80 backdrop-blur-sm rounded-b-xl z-10">
+                  <LoadingSpinner size="2rem" message="Generating depth map..." />
+                </div>
+              )}
+              {generatedDepthMap && !isDepthMapLoading && (
+                <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-2 animate-fade-in">
+                  <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
+                </div>
+              )}
+              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-sm text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {generationHistory.length > 0 && (
-        <Card className="w-full max-w-5xl mt-8 shadow-xl rounded-lg">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+        <Card className="w-full mt-8 md:mt-12 shadow-lg rounded-xl">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border">
             <div className="flex items-center mb-2 sm:mb-0">
-              <History className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
-              <CardTitle className="text-xl md:text-2xl font-headline">Generation History</CardTitle>
+              <History className="mr-2.5 h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <CardTitle className="text-xl md:text-2xl font-headline text-primary">Generation History</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 self-start sm:self-center" disabled={anyLoading}>
-              <Trash2 className="mr-2 h-4 w-4" /> Clear History
+            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 hover:border-destructive/70 self-start sm:self-center" disabled={anyLoading}>
+              <Trash2 className="mr-2 h-4 w-4" /> Clear All History
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 sm:p-2">
             <Accordion type="single" collapsible className="w-full">
-              {generationHistory.map((entry, index) => (
-                <AccordionItem value={`item-${index}`} key={entry.id} className="border-b-input">
-                  <AccordionTrigger className="hover:no-underline py-3 md:py-4" disabled={anyLoading}>
-                    <div className="flex items-center space-x-2 md:space-x-3 w-full">
-                      <div className="w-12 h-9 md:w-16 md:h-12 relative rounded overflow-hidden border border-input shrink-0">
+              {generationHistory.map((entry) => (
+                <AccordionItem value={entry.id} key={entry.id} className="border-b-border last:border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-3 px-4 md:py-4 md:px-6 text-left" disabled={anyLoading}>
+                    <div className="flex items-center space-x-3 md:space-x-4 w-full">
+                      <div className="w-16 h-12 md:w-20 md:h-16 relative rounded-md overflow-hidden border border-input shrink-0 bg-muted">
                         {entry.imagePreviewUrl ? (
                            <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted">
-                            <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground" />
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground" />
                           </div>
                         )}
                       </div>
-                      <div className="text-left overflow-hidden flex-grow">
-                        <p className="font-medium text-xs sm:text-sm truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[300px] md:max-w-full" title={entry.params.photoFileName || 'Uploaded Image'}>
-                          {entry.params.photoFileName || 'Uploaded Image'}
+                      <div className="flex-grow overflow-hidden">
+                        <p className="font-medium text-sm sm:text-base truncate text-foreground" title={entry.params.photoFileName || 'Uploaded Image'}>
+                          {entry.params.photoFileName || 'Previously Uploaded Image'}
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
                       </div>
+                       <Badge variant="outline" className="ml-auto hidden sm:inline-flex text-xs">{entry.params.targetModel}</Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-3 md:pb-4 space-y-2 md:space-y-3">
-                    <div className="text-xs md:text-sm text-muted-foreground space-y-1 bg-muted/30 p-2 md:p-3 rounded-md border border-input">
-                      <p><strong>Target Model:</strong> {entry.params.targetModel}</p>
-                      <p><strong>Language:</strong> {entry.params.outputLanguage}</p>
-                      <p><strong>Style:</strong> {entry.params.promptStyle}</p>
-                      <p><strong>Word Count:</strong> {entry.params.minWords} - {entry.params.maxWords}</p>
+                  <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-3 bg-muted/20">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-muted-foreground p-2 rounded-md border border-input bg-background/50">
+                      <div><strong>Model:</strong> {entry.params.targetModel}</div>
+                      <div><strong>Lang:</strong> {entry.params.outputLanguage}</div>
+                      <div><strong>Style:</strong> {entry.params.promptStyle}</div>
+                      <div><strong>Words:</strong> {entry.params.minWords}-{entry.params.maxWords}</div>
                     </div>
                     <div className="relative">
-                      <Textarea
-                        value={entry.generatedPrompt}
-                        readOnly
-                        className="min-h-[80px] md:min-h-[100px] text-xs md:text-sm bg-muted/50 rounded-md"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleCopyPrompt(entry.generatedPrompt, entry.id)}
-                        className="absolute top-1 right-1 md:top-2 md:right-2 text-muted-foreground hover:text-primary h-6 w-6 md:h-7 md:w-7"
-                        aria-label="Copy prompt from history"
-                        disabled={anyLoading}
-                      >
-                        <Copy className="h-3 w-3 md:h-4 md:h-4" />
+                      <Textarea value={entry.generatedPrompt} readOnly className="min-h-[80px] text-xs bg-background border-input" />
+                      <Button variant="ghost" size="icon" onClick={() => handleCopyPrompt(entry.generatedPrompt)} className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-primary h-7 w-7" aria-label="Copy prompt from history" disabled={anyLoading}>
+                        <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading}>
-                      <DownloadCloud className="mr-2 h-3 w-3 md:h-4 md:h-4" /> Load these settings & prompt
+                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading} className="text-sm">
+                      <DownloadCloud className="mr-2 h-4 w-4" /> Load Settings & Prompt
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
@@ -992,45 +804,23 @@ export default function VisionaryPrompterPage() {
         </Card>
       )}
 
-      <footer className="mt-12 text-center text-xs md:text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
+      <footer className="mt-12 md:mt-16 py-8 text-center text-xs md:text-sm text-muted-foreground border-t border-border">
+        <p>&copy; {new Date().getFullYear()} Visionary Prompter. AI-Powered Creativity.</p>
         {sessionId && !isEditingSessionId && (
-          <div className="text-xs mt-1">
-            Session ID:{" "}
-            <Button
-              variant="link"
-              className="p-0 h-auto text-xs text-primary hover:underline"
-              onClick={() => {
-                setNewSessionIdInput(sessionId);
-                setIsEditingSessionId(true);
-              }}
-              title="Edit Session ID"
-              disabled={anyLoading}
-            >
-              {sessionId} <Edit3 className="ml-1 h-3 w-3" />
+          <div className="text-xs mt-2">
+            Current Session:{" "}
+            <Button variant="link" className="p-0 h-auto text-xs text-primary hover:underline" onClick={() => { setNewSessionIdInput(sessionId); setIsEditingSessionId(true); }} title="Edit Session ID" disabled={anyLoading}>
+              {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId} <Edit3 className="ml-1 h-3 w-3" />
             </Button>
           </div>
         )}
         {isEditingSessionId && sessionId && (
-          <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+          <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 max-w-md mx-auto">
             <Label htmlFor="session-id-input" className="text-xs sr-only">New Session ID:</Label>
-            <Input
-              id="session-id-input"
-              type="text"
-              value={newSessionIdInput}
-              onChange={(e) => setNewSessionIdInput(e.target.value)}
-              placeholder="Enter new Session ID"
-              className="text-xs h-8 w-full max-w-xs sm:w-auto"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }}
-              disabled={anyLoading}
-            />
+            <Input id="session-id-input" type="text" value={newSessionIdInput} onChange={(e) => setNewSessionIdInput(e.target.value)} placeholder="Enter or generate new Session ID" className="text-xs h-8 w-full sm:w-auto flex-grow" onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }} disabled={anyLoading} />
             <div className="flex gap-2 mt-1 sm:mt-0">
-              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs" disabled={anyLoading}>
-                Set ID
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs" disabled={anyLoading}>
-                Cancel
-              </Button>
+              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs px-3" disabled={anyLoading}>Set ID</Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs px-3" disabled={anyLoading}>Cancel</Button>
             </div>
           </div>
         )}
@@ -1038,4 +828,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
