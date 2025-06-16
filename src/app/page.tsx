@@ -26,7 +26,7 @@ type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 interface HistoryEntry {
   id: string;
   timestamp: string;
-  imagePreviewUrl?: string | null; // Kept for in-memory display
+  imagePreviewUrl?: string | null; 
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
@@ -74,7 +74,6 @@ export default function VisionaryPrompterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Effect for initializing sessionId on mount
   useEffect(() => {
     let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
     if (!currentSessionId) {
@@ -84,9 +83,8 @@ export default function VisionaryPrompterPage() {
     setSessionId(currentSessionId);
   }, []);
 
-  // Effect for loading/initializing credits when sessionId changes
   useEffect(() => {
-    if (!sessionId) return; // Don't run if sessionId is not yet set
+    if (!sessionId) return; 
 
     const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
     try {
@@ -106,7 +104,7 @@ export default function VisionaryPrompterPage() {
       }
     } catch (error) {
       console.error("Error accessing localStorage for credits:", error);
-      setCredits(INITIAL_CREDITS); // Fallback
+      setCredits(INITIAL_CREDITS); 
       toast({
         variant: "destructive",
         title: "Credit System Error",
@@ -120,18 +118,15 @@ export default function VisionaryPrompterPage() {
     try {
       const storedHistoryJson = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
       if (storedHistoryJson) {
-        // Parse and assume no imagePreviewUrl, as it's not stored
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
-        // Map to HistoryEntry[], adding imagePreviewUrl as null
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
-          imagePreviewUrl: null, // Explicitly set to null
+          imagePreviewUrl: null, 
         }));
         setGenerationHistory(historyWithPlaceholders);
       }
     } catch (error) {
       console.error("Error loading history from localStorage:", error);
-      // Attempt to clear corrupted history
       try {
         localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
       } catch (removeError) {
@@ -146,10 +141,9 @@ export default function VisionaryPrompterPage() {
   }, [toast]);
 
   useEffect(() => {
-    // Create a version of history without imagePreviewUrl for storage
     const historyToStore = generationHistory.map(entry => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { imagePreviewUrl, ...rest } = entry; // Destructure to omit imagePreviewUrl
+      const { imagePreviewUrl, ...rest } = entry; 
       return rest;
     });
 
@@ -157,15 +151,12 @@ export default function VisionaryPrompterPage() {
       if (historyToStore.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
       } else {
-        // If history is empty, explicitly remove it from localStorage
-        // This check ensures we don't try to remove if it wasn't there, though removeItem is safe
         if (localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY)) {
           localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
         }
       }
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
-      // Check if it's a quota error
       if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22)) {
         toast({
           variant: "destructive",
@@ -197,7 +188,7 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) { // 4MB limit
+      if (file.size > 4 * 1024 * 1024) { 
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -220,7 +211,7 @@ export default function VisionaryPrompterPage() {
         setUploadedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      setGeneratedPrompt(''); // Clear previous prompt
+      setGeneratedPrompt(''); 
     }
   };
 
@@ -260,7 +251,7 @@ export default function VisionaryPrompterPage() {
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage, // Keep for current session display
+        imagePreviewUrl: uploadedImage, 
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
@@ -322,6 +313,7 @@ export default function VisionaryPrompterPage() {
       const input: ExtendPromptInput = {
         originalPrompt: generatedPrompt,
         promptLanguage: selectedLanguage,
+        maxWords: maxWords, 
       };
       const result = await extendPrompt(input);
       setGeneratedPrompt(result.extendedPrompt);
@@ -603,50 +595,50 @@ export default function VisionaryPrompterPage() {
                   aria-live="polite"
                 />
                 {generatedPrompt && !isLoading && (
-                  <div className="absolute top-2 right-2 flex space-x-1 bg-card/80 backdrop-blur-sm p-1 rounded-lg shadow-md">
+                  <div className="absolute top-2 right-2 flex space-x-1 bg-card/80 backdrop-blur-sm p-1 rounded-md shadow-sm">
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
+                      className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Enhance prompt with magic"
                     >
-                      {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4 md:h-5 md:w-5" />}
+                      {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-4 w-4" />}
                     </Button>
                      <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={handleExtendPrompt}
                       title="Extend Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
+                      className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Extend prompt"
                     >
-                      {isExtendingLoading ? <LoadingSpinner size="0.9rem" /> : <Edit3 className="h-4 w-4 md:h-5 md:w-5" />}
+                      {isExtendingLoading ? <LoadingSpinner size="0.8rem" /> : <Edit3 className="h-4 w-4" />}
                     </Button>
                      <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
+                      className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Translate prompt"
                     >
-                      {isTranslateLoading ? <LoadingSpinner size="0.9rem" /> : <Globe className="h-4 w-4 md:h-5 md:w-5" />}
+                      {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-4 w-4" />}
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="sm"
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
+                      className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Copy prompt"
                     >
-                      {isCopied ? <Check className="h-4 w-4 md:h-5 md:w-5 text-green-500" /> : <Copy className="h-4 w-4 md:h-5 md:w-5" />}
+                      {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
                 )}
