@@ -22,7 +22,7 @@ import { generateDepthMap, type GenerateDepthMapInput, type GenerateDepthMapOutp
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush as PaintbrushIcon, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info, Film, Aperture, Shapes } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info, Film, Aperture, Shapes } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
@@ -413,7 +413,7 @@ export default function VisionaryPrompterPage() {
     } catch (error) {
       console.error("Error generating depth map:", error);
       let errorMessage = "An unknown error occurred while generating the depth map.";
-      if (error instanceof Error) {
+       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
@@ -556,7 +556,7 @@ export default function VisionaryPrompterPage() {
 
     if (newMin < OVERALL_MIN_WORDS) newMin = OVERALL_MIN_WORDS;
     if (newMax > OVERALL_MAX_WORDS) newMax = OVERALL_MAX_WORDS;
-    if (newMin > newMax) newMin = newMax; // Ensure min is not greater than max
+    if (newMin > newMax) newMin = newMax; 
 
     setMinWords(newMin);
     setMaxWords(newMax);
@@ -661,14 +661,14 @@ export default function VisionaryPrompterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="prompt-style-select" className="text-sm md:text-base flex items-center">
-                 <PaintbrushIcon className="mr-2 h-4 w-4 text-primary" /> Prompt Style
+                 <Paintbrush className="mr-2 h-4 w-4 text-primary" /> Prompt Style
               </Label>
               <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
                 <SelectTrigger id="prompt-style-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select prompt style" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="detailed"><PaintbrushIcon className="mr-2 h-4 w-4 inline-block" />Detailed</SelectItem>
+                  <SelectItem value="detailed"><Paintbrush className="mr-2 h-4 w-4 inline-block" />Detailed</SelectItem>
                   <SelectItem value="creative"><Sparkles className="mr-2 h-4 w-4 inline-block" />Creative</SelectItem>
                   <SelectItem value="keywords"><SlidersHorizontal className="mr-2 h-4 w-4 inline-block" />Keywords-based</SelectItem>
                   <SelectItem value="cinematic"><Film className="mr-2 h-4 w-4 inline-block" />Cinematic</SelectItem>
@@ -679,7 +679,7 @@ export default function VisionaryPrompterPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-1">
                 <Label htmlFor="word-count-slider" className="text-sm md:text-base flex items-center">
                   <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Prompt Word Count Range
                 </Label>
@@ -756,7 +756,7 @@ export default function VisionaryPrompterPage() {
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
                       disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1" 
                       aria-label="Enhance prompt with magic"
                     >
                       {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-4 w-4" />}
@@ -767,7 +767,7 @@ export default function VisionaryPrompterPage() {
                       onClick={handleExtendPrompt}
                       title="Extend Prompt"
                       disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
                       aria-label="Extend prompt"
                     >
                       {isExtendingLoading ? <LoadingSpinner size="0.8rem" /> : <Edit3 className="h-4 w-4" />}
@@ -778,7 +778,7 @@ export default function VisionaryPrompterPage() {
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
                       disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
                       aria-label="Translate prompt"
                     >
                       {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-4 w-4" />}
@@ -789,7 +789,7 @@ export default function VisionaryPrompterPage() {
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
                       disabled={anyLoading}
-                      className="text-muted-foreground hover:text-primary h-7 w-7"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 p-1"
                       aria-label="Copy prompt"
                     >
                       {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -1038,3 +1038,4 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
