@@ -24,7 +24,7 @@ const MediaPartSchema = z.object({
     contentType: z.string().optional().describe("The MIME type of the media, e.g., 'image/png'.")
   }),
 });
-export const PartSchema = z.union([TextPartSchema, MediaPartSchema]);
+const PartSchema = z.union([TextPartSchema, MediaPartSchema]); // Made non-exported
 export type PartType = z.infer<typeof PartSchema>;
 
 
@@ -32,7 +32,7 @@ export type PartType = z.infer<typeof PartSchema>;
 const MessageSchema = z.object({
   role: z.enum(['user', 'model', 'system', 'tool']),
   parts: z.array(PartSchema),
-});
+}); // Made non-exported
 export type Message = z.infer<typeof MessageSchema>;
 
 
