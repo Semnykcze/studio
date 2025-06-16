@@ -25,7 +25,7 @@ import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, 
-  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Minimize
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text';
@@ -91,6 +91,10 @@ export default function VisionaryPrompterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  const dispatchCreditsUpdate = (newCreditsValue: number) => {
+    window.dispatchEvent(new CustomEvent('creditsChanged', { detail: newCreditsValue }));
+  };
+
   useEffect(() => {
     let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
     if (!currentSessionId) {
@@ -106,26 +110,32 @@ export default function VisionaryPrompterPage() {
     const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
     try {
       const storedCredits = localStorage.getItem(creditsStorageKey);
+      let currentCreditsValue: number;
       if (storedCredits === null) {
-        setCredits(INITIAL_CREDITS);
+        currentCreditsValue = INITIAL_CREDITS;
         localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
       } else {
         const parsedCredits = parseInt(storedCredits, 10);
         if (isNaN(parsedCredits)) {
-            setCredits(INITIAL_CREDITS);
+            currentCreditsValue = INITIAL_CREDITS;
             localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
         } else {
-            setCredits(parsedCredits);
+            currentCreditsValue = parsedCredits;
         }
       }
+      setCredits(currentCreditsValue);
+      dispatchCreditsUpdate(currentCreditsValue);
+
     } catch (error) {
       setCredits(INITIAL_CREDITS); 
+      dispatchCreditsUpdate(INITIAL_CREDITS);
       toast({
         variant: "destructive",
         title: "Credit System Error",
         description: "Could not load credits.",
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, toast]);
 
   useEffect(() => {
@@ -265,6 +275,7 @@ export default function VisionaryPrompterPage() {
 
       const newCredits = credits - 1;
       setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
       const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
       localStorage.setItem(creditsStorageKey, newCredits.toString());
 
@@ -360,6 +371,7 @@ export default function VisionaryPrompterPage() {
       setGeneratedDepthMap(result.depthMapDataUri);
       const newCredits = credits - 1;
       setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Depth map generated!", description: "Experimental feature via fal.ai." });
     } catch (error) {
@@ -390,6 +402,7 @@ export default function VisionaryPrompterPage() {
       setImageStyleAnalysis(result);
       const newCredits = credits - 1;
       setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Image style analysis complete!" });
     } catch (error) {
@@ -677,7 +690,7 @@ export default function VisionaryPrompterPage() {
                 </div>
               )}
               {imageStyleAnalysis && !isStyleAnalysisLoading && (
-                <div className="space-y-3 text-sm animate-fade-in">
+                <div className="space-y-3 text-sm animate-fade-in-fast">
                   <div className="p-3 bg-muted/30 rounded-md border border-input">
                     <h4 className="font-semibold text-primary mb-1">Identified Style:</h4>
                     <p className="text-foreground">{imageStyleAnalysis.identifiedStyle || 'N/A'}</p>
@@ -735,7 +748,7 @@ export default function VisionaryPrompterPage() {
                 </div>
               )}
               {generatedDepthMap && !isDepthMapLoading && (
-                <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-2 animate-fade-in">
+                <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input mt-2 animate-fade-in-fast">
                   <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
                 </div>
               )}

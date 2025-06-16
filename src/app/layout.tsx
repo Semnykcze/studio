@@ -4,8 +4,10 @@ import Link from 'next/link';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
-import { AppSwitcherButton } from '@/components/app-switcher-button'; // Added AppSwitcherButton
-import { Bot } from 'lucide-react'; 
+import { AppSwitcherButton } from '@/components/app-switcher-button';
+import { CreditsDisplay } from '@/components/credits-display'; // Added CreditsDisplay
+import { Button } from '@/components/ui/button'; // Added Button for icons
+import { Bot, User, Settings, Coins } from 'lucide-react'; 
 
 export const metadata: Metadata = {
   title: 'Visionary Prompter & Chatter', 
@@ -26,9 +28,18 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
-        <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2"> {/* Added flex and space-x-2 */}
-          <AppSwitcherButton /> {/* Added the new button */}
+        <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2">
+          <Button variant="outline" size="icon" className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="User Profile (Placeholder)">
+            <User className="h-[1.1rem] w-[1.1rem]" />
+          </Button>
+          <CreditsDisplay />
+          <AppSwitcherButton />
           <ThemeToggleButton />
+          <Button variant="outline" size="icon" asChild className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="Settings">
+            <Link href="/admin">
+              <Settings className="h-[1.1rem] w-[1.1rem]" />
+            </Link>
+          </Button>
         </div>
         <main className="flex-grow">
           {children}
