@@ -17,8 +17,11 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
+import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3 } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription as AlertDescriptionUI, AlertTitle as AlertTitleUI } from "@/components/ui/alert";
+
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -69,6 +72,9 @@ export default function VisionaryPrompterPage() {
   
   const [isEditingSessionId, setIsEditingSessionId] = useState<boolean>(false);
   const [newSessionIdInput, setNewSessionIdInput] = useState<string>("");
+
+  const [generatedDepthMap, setGeneratedDepthMap] = useState<string | null>(null);
+  const [isDepthMapLoading, setIsDepthMapLoading] = useState<boolean>(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +218,7 @@ export default function VisionaryPrompterPage() {
       };
       reader.readAsDataURL(file);
       setGeneratedPrompt(''); 
+      setGeneratedDepthMap(null); // Clear previous depth map on new image upload
     }
   };
 
@@ -348,6 +355,43 @@ export default function VisionaryPrompterPage() {
     }
   };
 
+  const handleGenerateDepthMap = async () => {
+    if (!uploadedImage) {
+      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first to generate a depth map." });
+      return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
+      return;
+    }
+    if (credits === null || credits <= 0) {
+      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits for this feature." });
+      return;
+    }
+
+    setIsDepthMapLoading(true);
+    setGeneratedDepthMap(null);
+    try {
+      const input: GenerateDepthMapInput = {
+        photoDataUri: uploadedImage,
+      };
+      const result = await generateDepthMap(input);
+      setGeneratedDepthMap(result.depthMapDataUri);
+
+      const newCredits = credits - 1;
+      setCredits(newCredits);
+      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
+      localStorage.setItem(creditsStorageKey, newCredits.toString());
+
+      toast({ title: "Depth map generated!", description: "Note: This is an experimental feature." });
+    } catch (error) {
+      console.error("Error generating depth map:", error);
+      toast({ variant: "destructive", title: "Error generating depth map", description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsDepthMapLoading(false);
+    }
+  };
+
 
   const handleCopyPrompt = (textToCopy: string, uniqueId?: string) => {
     if (!textToCopy) return;
@@ -382,6 +426,7 @@ export default function VisionaryPrompterPage() {
       setUploadedImage(null);
     }
     setImageFile(null); 
+    setGeneratedDepthMap(null); // Clear depth map when loading from history
 
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -429,7 +474,7 @@ export default function VisionaryPrompterPage() {
           </h1>
         </div>
         <p className="text-md sm:text-lg md:text-xl text-muted-foreground px-2">
-          Upload an image, and let AI craft the perfect prompt in your chosen language and style.
+          Upload an image, and let AI craft the perfect prompt or analyze its depth.
         </p>
       </header>
 
@@ -547,7 +592,7 @@ export default function VisionaryPrompterPage() {
 
             <Button
               onClick={handleGeneratePrompt}
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || isExtendingLoading || credits === null || credits <= 0}
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || credits === null || credits <= 0}
               className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
               aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
@@ -558,8 +603,8 @@ export default function VisionaryPrompterPage() {
               )}
               Generate Prompt
             </Button>
-             {credits !== null && credits <= 0 && (
-              <p className="text-sm text-center text-destructive">You have run out of credits. </p>
+             {credits !== null && credits <= 0 && !isLoading && (
+              <p className="text-sm text-center text-destructive">You have run out of credits for prompt generation. </p>
             )}
           </CardContent>
         </Card>
@@ -601,7 +646,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading || isDepthMapLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Enhance prompt with magic"
                     >
@@ -612,7 +657,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleExtendPrompt}
                       title="Extend Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading || isDepthMapLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Extend prompt"
                     >
@@ -623,7 +668,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading || isDepthMapLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Translate prompt"
                     >
@@ -634,7 +679,7 @@ export default function VisionaryPrompterPage() {
                       size="sm"
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading || isDepthMapLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7"
                       aria-label="Copy prompt"
                     >
@@ -652,6 +697,60 @@ export default function VisionaryPrompterPage() {
           </CardContent>
         </Card>
       </main>
+
+      <Card className="w-full max-w-5xl mt-8 shadow-xl rounded-lg">
+        <CardHeader>
+          <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
+            <Layers className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
+            Depth Map Analysis (Experimental)
+          </CardTitle>
+          <CardDescription className="text-sm md:text-base">
+            Generate an experimental visual depth map from your uploaded image. This feature also consumes 1 credit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert variant="default" className="bg-accent/20 border-accent/50">
+            <AlertTriangle className="h-4 w-4 text-accent-foreground" />
+            <AlertTitleUI className="text-accent-foreground/90">Experimental Feature</AlertTitleUI>
+            <AlertDescriptionUI className="text-accent-foreground/80">
+              The generated depth map is an AI interpretation and may not be perfectly accurate. Quality can vary.
+            </AlertDescriptionUI>
+          </Alert>
+          <Button
+            onClick={handleGenerateDepthMap}
+            disabled={isDepthMapLoading || !uploadedImage || isLoading || credits === null || credits <= 0}
+            className="w-full md:w-auto text-md md:text-lg"
+            variant="outline"
+            aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}
+          >
+            {isDepthMapLoading ? (
+              <LoadingSpinner size="1.25rem" className="mr-2" />
+            ) : (
+              <Layers className="mr-2 h-5 w-5" />
+            )}
+            Generate Depth Map
+          </Button>
+           {credits !== null && credits <= 0 && !isDepthMapLoading && (
+              <p className="text-sm text-center text-destructive">You have run out of credits for this feature.</p>
+            )}
+
+          {isDepthMapLoading && (
+            <div className="flex items-center justify-center py-10">
+              <LoadingSpinner size="2rem" message="Generating depth map..." />
+            </div>
+          )}
+
+          {generatedDepthMap && !isDepthMapLoading && (
+            <div className="mt-4 space-y-2">
+              <Label className="text-sm md:text-base">Generated Depth Map</Label>
+              <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input bg-muted">
+                <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map" />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       {generationHistory.length > 0 && (
         <Card className="w-full max-w-5xl mt-8 shadow-xl rounded-lg">
