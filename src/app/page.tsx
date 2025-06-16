@@ -16,7 +16,6 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud } from 'lucide-react';
 
-type AnalysisModelType = 'gemini' | 'gemma';
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 
@@ -25,7 +24,6 @@ interface HistoryEntry {
   timestamp: string;
   imagePreviewUrl: string;
   params: {
-    modelType: AnalysisModelType;
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
     maxWords: number;
@@ -42,7 +40,6 @@ export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
-  const [selectedAnalysisModel, setSelectedAnalysisModel] = useState<AnalysisModelType>('gemini');
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
   const [maxWords, setMaxWords] = useState<number>(150);
@@ -121,7 +118,6 @@ export default function VisionaryPrompterPage() {
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
-        modelType: selectedAnalysisModel,
         targetModel: selectedTargetModel,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
@@ -135,7 +131,6 @@ export default function VisionaryPrompterPage() {
         timestamp: new Date().toLocaleString(),
         imagePreviewUrl: uploadedImage,
         params: {
-          modelType: selectedAnalysisModel,
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
           maxWords: maxWords,
@@ -183,12 +178,8 @@ export default function VisionaryPrompterPage() {
 
   const loadFromHistory = (entry: HistoryEntry) => {
     setUploadedImage(entry.imagePreviewUrl);
-    // Note: We can't re-set the imageFile from data URI directly for security reasons.
-    // User would need to re-upload if they want to re-generate with the *exact* same file.
-    // We can, however, restore other parameters.
-    setImageFile(null); // Indicate that parameters are loaded, but file needs re-upload for new generation.
+    setImageFile(null); 
     
-    setSelectedAnalysisModel(entry.params.modelType);
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setMaxWords(entry.params.maxWords);
@@ -221,7 +212,7 @@ export default function VisionaryPrompterPage() {
               <UploadCloud className="mr-2 h-6 w-6 text-primary" />
               Configure & Generate
             </CardTitle>
-            <CardDescription>Upload your image and set generation parameters.</CardDescription>
+            <CardDescription>Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -252,19 +243,6 @@ export default function VisionaryPrompterPage() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="analysis-model-select" className="text-base">Analysis Model</Label>
-              <Select value={selectedAnalysisModel} onValueChange={(value: string) => setSelectedAnalysisModel(value as AnalysisModelType)}>
-                <SelectTrigger id="analysis-model-select" className="w-full text-base">
-                  <SelectValue placeholder="Select analysis model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gemini">Gemini (Powerful Proprietary Model)</SelectItem>
-                  <SelectItem value="gemma">Gemma 7B (Capable Open Model)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="target-model-select" className="text-base">Target Prompt Model</Label>
               <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)}>
@@ -428,7 +406,6 @@ export default function VisionaryPrompterPage() {
                   </AccordionTrigger>
                   <AccordionContent className="pt-2 pb-4 space-y-3">
                     <div className="text-sm text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md border border-input">
-                      <p><strong>Analysis Model:</strong> {entry.params.modelType}</p>
                       <p><strong>Target Model:</strong> {entry.params.targetModel}</p>
                       <p><strong>Language:</strong> {entry.params.outputLanguage}</p>
                       <p><strong>Style:</strong> {entry.params.promptStyle}</p>
