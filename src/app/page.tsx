@@ -18,6 +18,7 @@ import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins } from 'lucide-react';
+import { getCreditsForSession, updateCreditsForSession, initializeCreditsForSession } from './actions'; // Assuming actions.ts is in the same directory for simplicity
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -38,8 +39,13 @@ interface HistoryEntry {
 
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
+const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId';
 const INITIAL_CREDITS = 10;
-const LOCAL_STORAGE_CREDITS_KEY = 'visionaryPrompterCredits';
+
+
+function generateSessionId() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
 
 
 export default function VisionaryPrompterPage() {
@@ -55,10 +61,43 @@ export default function VisionaryPrompterPage() {
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
-  const [credits, setCredits] = useState<number>(INITIAL_CREDITS);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
+    if (!currentSessionId) {
+      currentSessionId = generateSessionId();
+      localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, currentSessionId);
+    }
+    setSessionId(currentSessionId);
+
+    const fetchUserCredits = async (sid: string) => {
+      try {
+        let userCredits = await getCreditsForSession(sid);
+        if (userCredits === null || userCredits === undefined) {
+          userCredits = await initializeCreditsForSession(sid, INITIAL_CREDITS);
+        }
+        setCredits(userCredits);
+      } catch (error) {
+        console.error("Error fetching/initializing credits:", error);
+        toast({
+          variant: "destructive",
+          title: "Credit System Error",
+          description: "Could not load or initialize your credits. Please try refreshing.",
+        });
+        setCredits(INITIAL_CREDITS); // Fallback
+      }
+    };
+
+    if (currentSessionId) {
+      fetchUserCredits(currentSessionId);
+    }
+  }, [toast]);
+
 
   useEffect(() => {
     try {
@@ -80,30 +119,6 @@ export default function VisionaryPrompterPage() {
         description: "History data might be corrupted and has been cleared.",
       });
     }
-
-    try {
-      const storedCredits = localStorage.getItem(LOCAL_STORAGE_CREDITS_KEY);
-      if (storedCredits !== null) {
-        const parsedCredits = parseInt(storedCredits, 10);
-        if (!isNaN(parsedCredits)) {
-          setCredits(parsedCredits);
-        } else {
-          localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
-          setCredits(INITIAL_CREDITS);
-        }
-      } else {
-         localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
-      }
-    } catch (error) {
-      console.error("Error loading credits from localStorage:", error);
-      localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
-      setCredits(INITIAL_CREDITS);
-      toast({
-        variant: "destructive",
-        title: "Failed to load credits",
-        description: "Credits have been reset to default.",
-      });
-    }
   }, [toast]);
 
   useEffect(() => {
@@ -112,7 +127,9 @@ export default function VisionaryPrompterPage() {
       return rest;
     });
     try {
-      localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
+      if (generationHistory.length > 0) { // Only save if there's actual history
+        localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(historyToStore));
+      }
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
       toast({
@@ -122,19 +139,6 @@ export default function VisionaryPrompterPage() {
       });
     }
   }, [generationHistory, toast]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(credits));
-    } catch (error) {
-      console.error("Error saving credits to localStorage:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to save credits",
-        description: "Could not save current credit count.",
-      });
-    }
-  }, [credits, toast]);
 
 
   const languageOptions: { value: string; label: string }[] = [
@@ -180,20 +184,15 @@ export default function VisionaryPrompterPage() {
 
   const handleGeneratePrompt = async () => {
     if (!uploadedImage || !imageFile) {
-      toast({
-        variant: "destructive",
-        title: "No image uploaded",
-        description: "Please upload an image first.",
-      });
+      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first." });
       return;
     }
-
-    if (credits <= 0) {
-      toast({
-        variant: "destructive",
-        title: "No credits left",
-        description: "You have run out of credits to generate prompts.",
-      });
+    if (!sessionId) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
+      return;
+    }
+    if (credits === null || credits <= 0) {
+      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits to generate prompts." });
       return;
     }
 
@@ -209,7 +208,9 @@ export default function VisionaryPrompterPage() {
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
-      setCredits(prev => Math.max(0, prev - 1)); // Decrease credits
+      
+      const newCredits = await updateCreditsForSession(sessionId, credits - 1);
+      setCredits(newCredits);
 
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
@@ -347,37 +348,37 @@ export default function VisionaryPrompterPage() {
       <header className="w-full max-w-5xl mb-8 md:mb-12 text-center">
         <div className="flex items-center justify-center space-x-3 mb-2">
           <BrainCircuit className="h-10 w-10 md:h-12 md:w-12 text-primary" />
-          <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-headline font-bold text-primary">
             Visionary Prompter
           </h1>
         </div>
-        <p className="text-lg md:text-xl text-muted-foreground">
+        <p className="text-md sm:text-lg md:text-xl text-muted-foreground px-2">
           Upload an image, and let AI craft the perfect prompt in your chosen language and style.
         </p>
       </header>
 
-      <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
+      <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
         <Card className="shadow-xl rounded-lg">
           <CardHeader>
-            <div className="flex justify-between items-start">
-                <div className="flex-grow">
-                    <CardTitle className="text-2xl font-headline flex items-center">
-                    <UploadCloud className="mr-2 h-6 w-6 text-primary" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <div className="flex-grow mb-2 sm:mb-0">
+                    <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
+                    <UploadCloud className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
                     Configure & Generate
                     </CardTitle>
-                    <CardDescription>Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
+                    <CardDescription className="text-sm md:text-base">Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
                 </div>
-                <Badge variant="outline" className="text-base ml-4 shrink-0">
-                    <Coins className="mr-2 h-5 w-5 text-primary" />
-                    Credits: {credits}
+                <Badge variant="outline" className="text-sm md:text-base ml-0 sm:ml-4 shrink-0 self-start sm:self-center">
+                    <Coins className="mr-2 h-4 w-4 md:h-5 md:w-5 text-primary" />
+                    Credits: {credits === null ? <LoadingSpinner size="0.8rem" /> : credits}
                 </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="image-upload" className="text-base">Upload Image</Label>
+              <Label htmlFor="image-upload" className="text-sm md:text-base">Upload Image</Label>
               <div 
-                className="flex items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer border-input hover:border-primary transition-colors"
+                className="flex items-center justify-center w-full p-4 md:p-6 border-2 border-dashed rounded-lg cursor-pointer border-input hover:border-primary transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                 onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
                 tabIndex={0}
@@ -385,8 +386,8 @@ export default function VisionaryPrompterPage() {
                 aria-label="Upload image"
               >
                 <div className="text-center">
-                  <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <UploadCloud className="mx-auto h-10 w-10 md:h-12 md:w-12 text-muted-foreground" />
+                  <p className="mt-2 text-xs md:text-sm text-muted-foreground">
                     <span className="font-semibold text-primary">Click to upload</span> or drag and drop
                   </p>
                   <p className="text-xs text-muted-foreground">PNG, JPG, GIF, WEBP up to 4MB</p>
@@ -403,9 +404,9 @@ export default function VisionaryPrompterPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="target-model-select" className="text-base">Target Prompt Model</Label>
+              <Label htmlFor="target-model-select" className="text-sm md:text-base">Target Prompt Model</Label>
               <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)}>
-                <SelectTrigger id="target-model-select" className="w-full text-base">
+                <SelectTrigger id="target-model-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select target model" />
                 </SelectTrigger>
                 <SelectContent>
@@ -418,11 +419,11 @@ export default function VisionaryPrompterPage() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="language-select" className="text-base flex items-center">
+              <Label htmlFor="language-select" className="text-sm md:text-base flex items-center">
                 <Languages className="mr-2 h-4 w-4 text-primary" /> Output Language
               </Label>
               <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)}>
-                <SelectTrigger id="language-select" className="w-full text-base">
+                <SelectTrigger id="language-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select language" />
                 </SelectTrigger>
                 <SelectContent>
@@ -434,11 +435,11 @@ export default function VisionaryPrompterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="prompt-style-select" className="text-base flex items-center">
+              <Label htmlFor="prompt-style-select" className="text-sm md:text-base flex items-center">
                  <Paintbrush className="mr-2 h-4 w-4 text-primary" /> Prompt Style
               </Label>
               <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)}>
-                <SelectTrigger id="prompt-style-select" className="w-full text-base">
+                <SelectTrigger id="prompt-style-select" className="w-full text-sm md:text-base">
                   <SelectValue placeholder="Select prompt style" />
                 </SelectTrigger>
                 <SelectContent>
@@ -451,10 +452,10 @@ export default function VisionaryPrompterPage() {
             
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="max-words-slider" className="text-base flex items-center">
+                <Label htmlFor="max-words-slider" className="text-sm md:text-base flex items-center">
                   <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Max Prompt Words
                 </Label>
-                <span className="text-sm font-medium text-primary">{maxWords} words</span>
+                <span className="text-xs md:text-sm font-medium text-primary">{maxWords} words</span>
               </div>
               <Slider
                 id="max-words-slider"
@@ -470,9 +471,9 @@ export default function VisionaryPrompterPage() {
 
             <Button 
               onClick={handleGeneratePrompt} 
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits <= 0} 
-              className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
-              aria-label={credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits === null || credits <= 0} 
+              className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
+              aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
               {isLoading ? (
                 <LoadingSpinner size="1.25rem" className="mr-2" />
@@ -481,7 +482,7 @@ export default function VisionaryPrompterPage() {
               )}
               Generate Prompt
             </Button>
-             {credits <= 0 && (
+             {credits !== null && credits <= 0 && (
               <p className="text-sm text-center text-destructive">You have run out of credits. </p>
             )}
           </CardContent>
@@ -489,13 +490,13 @@ export default function VisionaryPrompterPage() {
 
         <Card className="shadow-xl rounded-lg">
           <CardHeader>
-            <CardTitle className="text-2xl font-headline flex items-center">
-              <ImageIcon className="mr-2 h-6 w-6 text-primary" />
+            <CardTitle className="text-xl md:text-2xl font-headline flex items-center">
+              <ImageIcon className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
               Preview & Prompt
             </CardTitle>
-            <CardDescription>Your uploaded image and the AI-generated prompt.</CardDescription>
+            <CardDescription className="text-sm md:text-base">Your uploaded image and the AI-generated prompt.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6 relative">
+          <CardContent className="space-y-4 md:space-y-6 relative">
             {uploadedImage ? (
               <div className="aspect-video w-full relative rounded-lg overflow-hidden border border-input">
                 <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" data-ai-hint="user uploaded" />
@@ -507,14 +508,14 @@ export default function VisionaryPrompterPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="generated-prompt" className="text-base">Generated Prompt</Label>
+              <Label htmlFor="generated-prompt" className="text-sm md:text-base">Generated Prompt</Label>
               <div className="relative">
                 <Textarea
                   id="generated-prompt"
                   value={generatedPrompt}
                   readOnly
                   placeholder={isLoading ? "Generating your visionary prompt..." : "Your AI-generated prompt will appear here..."}
-                  className="min-h-[150px] text-base bg-muted/50 focus-visible:ring-accent rounded-md"
+                  className="min-h-[120px] md:min-h-[150px] text-sm md:text-base bg-muted/50 focus-visible:ring-accent rounded-md"
                   aria-live="polite"
                 />
                 {generatedPrompt && !isLoading && (
@@ -525,10 +526,10 @@ export default function VisionaryPrompterPage() {
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
                       aria-label="Enhance prompt"
                     >
-                      {isMagicLoading ? <LoadingSpinner size="1rem" /> : <Sparkles className="h-5 w-5" />}
+                      {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4 md:h-5 md:w-5" />}
                     </Button>
                      <Button
                       variant="ghost"
@@ -536,10 +537,10 @@ export default function VisionaryPrompterPage() {
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
                       aria-label="Translate prompt"
                     >
-                      {isTranslateLoading ? <LoadingSpinner size="1rem" /> : <Globe className="h-5 w-5" />}
+                      {isTranslateLoading ? <LoadingSpinner size="0.9rem" /> : <Globe className="h-4 w-4 md:h-5 md:w-5" />}
                     </Button>
                     <Button
                       variant="ghost"
@@ -547,10 +548,10 @@ export default function VisionaryPrompterPage() {
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
                       disabled={isMagicLoading || isTranslateLoading || isLoading}
-                      className="text-muted-foreground hover:text-primary"
+                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
                       aria-label="Copy prompt"
                     >
-                      {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5" />}
+                      {isCopied ? <Check className="h-4 w-4 md:h-5 md:w-5 text-green-500" /> : <Copy className="h-4 w-4 md:h-5 md:w-5" />}
                     </Button>
                   </div>
                 )}
@@ -567,12 +568,12 @@ export default function VisionaryPrompterPage() {
 
       {generationHistory.length > 0 && (
         <Card className="w-full max-w-5xl mt-8 shadow-xl rounded-lg">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center">
-              <History className="mr-2 h-6 w-6 text-primary" />
-              <CardTitle className="text-2xl font-headline">Generation History</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+            <div className="flex items-center mb-2 sm:mb-0">
+              <History className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <CardTitle className="text-xl md:text-2xl font-headline">Generation History</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50">
+            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50 self-start sm:self-center">
               <Trash2 className="mr-2 h-4 w-4" /> Clear History
             </Button>
           </CardHeader>
@@ -580,27 +581,27 @@ export default function VisionaryPrompterPage() {
             <Accordion type="single" collapsible className="w-full">
               {generationHistory.map((entry, index) => (
                 <AccordionItem value={`item-${index}`} key={entry.id} className="border-b-input">
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-16 h-12 relative rounded overflow-hidden border border-input shrink-0">
+                  <AccordionTrigger className="hover:no-underline py-3 md:py-4">
+                    <div className="flex items-center space-x-2 md:space-x-3 w-full">
+                      <div className="w-12 h-9 md:w-16 md:h-12 relative rounded overflow-hidden border border-input shrink-0">
                         {entry.imagePreviewUrl ? (
                            <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-muted">
-                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                            <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground" />
                           </div>
                         )}
                       </div>
-                      <div className="text-left">
-                        <p className="font-medium text-sm truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px]" title={entry.params.photoFileName || 'Uploaded Image'}>
+                      <div className="text-left overflow-hidden flex-grow">
+                        <p className="font-medium text-xs sm:text-sm truncate max-w-[150px] xs:max-w-[200px] sm:max-w-[300px] md:max-w-full" title={entry.params.photoFileName || 'Uploaded Image'}>
                           {entry.params.photoFileName || 'Uploaded Image'}
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-4 space-y-3">
-                    <div className="text-sm text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md border border-input">
+                  <AccordionContent className="pt-2 pb-3 md:pb-4 space-y-2 md:space-y-3">
+                    <div className="text-xs md:text-sm text-muted-foreground space-y-1 bg-muted/30 p-2 md:p-3 rounded-md border border-input">
                       <p><strong>Target Model:</strong> {entry.params.targetModel}</p>
                       <p><strong>Language:</strong> {entry.params.outputLanguage}</p>
                       <p><strong>Style:</strong> {entry.params.promptStyle}</p>
@@ -610,20 +611,20 @@ export default function VisionaryPrompterPage() {
                       <Textarea
                         value={entry.generatedPrompt}
                         readOnly
-                        className="min-h-[100px] text-sm bg-muted/50 rounded-md"
+                        className="min-h-[80px] md:min-h-[100px] text-xs md:text-sm bg-muted/50 rounded-md"
                       />
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleCopyPrompt(entry.generatedPrompt, entry.id)}
-                        className="absolute top-2 right-2 text-muted-foreground hover:text-primary"
+                        className="absolute top-1 right-1 md:top-2 md:right-2 text-muted-foreground hover:text-primary h-6 w-6 md:h-7 md:w-7"
                         aria-label="Copy prompt from history"
                       >
-                        <Copy className="h-4 w-4" />
+                        <Copy className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)}>
-                      <DownloadCloud className="mr-2 h-4 w-4" /> Load these settings & prompt
+                      <DownloadCloud className="mr-2 h-3 w-3 md:h-4 md:w-4" /> Load these settings & prompt
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
@@ -633,11 +634,10 @@ export default function VisionaryPrompterPage() {
         </Card>
       )}
 
-      <footer className="mt-12 text-center text-sm text-muted-foreground">
+      <footer className="mt-12 text-center text-xs md:text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
+        {sessionId && <p className="text-xs mt-1">Session ID: {sessionId}</p>}
       </footer>
     </div>
   );
 }
-
-    
