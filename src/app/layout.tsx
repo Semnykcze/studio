@@ -1,13 +1,14 @@
 
 import type {Metadata} from 'next';
-import Link from 'next/link'; // Added Link
+import Link from 'next/link'; 
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
-import { Bot } from 'lucide-react'; // Added Bot icon
+import { AppSwitcherButton } from '@/components/app-switcher-button'; // Added AppSwitcherButton
+import { Bot } from 'lucide-react'; 
 
 export const metadata: Metadata = {
-  title: 'Visionary Prompter & Chatter', // Updated title
+  title: 'Visionary Prompter & Chatter', 
   description: 'Analyze images, generate optimized prompts, and chat with an AI prompt expert.',
 };
 
@@ -25,7 +26,8 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
-        <div className="fixed top-4 right-4 z-50 print:hidden">
+        <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2"> {/* Added flex and space-x-2 */}
+          <AppSwitcherButton /> {/* Added the new button */}
           <ThemeToggleButton />
         </div>
         <main className="flex-grow">
