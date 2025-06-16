@@ -1,12 +1,14 @@
 
 import type {Metadata} from 'next';
+import Link from 'next/link'; // Added Link
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { Bot } from 'lucide-react'; // Added Bot icon
 
 export const metadata: Metadata = {
-  title: 'Visionary Prompter',
-  description: 'Analyze images and generate optimized prompts for AI models.',
+  title: 'Visionary Prompter & Chatter', // Updated title
+  description: 'Analyze images, generate optimized prompts, and chat with an AI prompt expert.',
 };
 
 export default function RootLayout({
@@ -29,9 +31,18 @@ export default function RootLayout({
         <main className="flex-grow">
           {children}
         </main>
+        <footer className="w-full border-t border-border py-6 text-center text-muted-foreground text-xs md:text-sm">
+          <div className="container mx-auto flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-2">
+            <p>&copy; {new Date().getFullYear()} Visionary Apps. AI-Powered Creativity.</p>
+            <nav>
+              <Link href="/visionary-chatter" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                <Bot size={14} /> Visionary Chatter
+              </Link>
+            </nav>
+          </div>
+        </footer>
         <Toaster />
       </body>
     </html>
   );
 }
-
