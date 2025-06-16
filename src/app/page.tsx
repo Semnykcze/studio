@@ -13,8 +13,10 @@ import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
+import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
+import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -22,7 +24,7 @@ type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 interface HistoryEntry {
   id: string;
   timestamp: string;
-  imagePreviewUrl?: string | null; // Optional for localStorage optimization
+  imagePreviewUrl?: string | null; 
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
@@ -45,6 +47,8 @@ export default function VisionaryPrompterPage() {
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
+  const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   
@@ -55,17 +59,16 @@ export default function VisionaryPrompterPage() {
     try {
       const storedHistoryJson = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
       if (storedHistoryJson) {
-        // History from localStorage will not have imagePreviewUrl
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
-          imagePreviewUrl: null, // Explicitly set to null for items from localStorage
+          imagePreviewUrl: null, 
         }));
         setGenerationHistory(historyWithPlaceholders);
       }
     } catch (error) {
       console.error("Error loading history from localStorage:", error);
-      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); // Clear corrupted history
+      localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); 
       toast({
         variant: "destructive",
         title: "Failed to load history",
@@ -75,9 +78,8 @@ export default function VisionaryPrompterPage() {
   }, [toast]);
 
   useEffect(() => {
-    // Prepare history for localStorage by removing imagePreviewUrl
     const historyToStore = generationHistory.map(entry => {
-      const { imagePreviewUrl, ...rest } = entry; // Exclude imagePreviewUrl
+      const { imagePreviewUrl, ...rest } = entry; 
       return rest;
     });
     try {
@@ -106,7 +108,7 @@ export default function VisionaryPrompterPage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) { // 4MB limit
+      if (file.size > 4 * 1024 * 1024) { 
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -147,7 +149,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedPrompt('');
     try {
       const input: AnalyzeImageGeneratePromptInput = {
-        photoDataUri: uploadedImage, // This is the full data URI
+        photoDataUri: uploadedImage,
         targetModel: selectedTargetModel,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
@@ -159,7 +161,7 @@ export default function VisionaryPrompterPage() {
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage, // Store full data URI in-memory for immediate display
+        imagePreviewUrl: uploadedImage, 
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
@@ -189,13 +191,56 @@ export default function VisionaryPrompterPage() {
     }
   };
 
+  const handleMagicPrompt = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt to enhance", description: "Please generate a prompt first." });
+      return;
+    }
+    setIsMagicLoading(true);
+    try {
+      const input: MagicPromptInput = {
+        originalPrompt: generatedPrompt,
+        promptLanguage: selectedLanguage, // Assumes current prompt is in selectedLanguage or LLM can handle it
+      };
+      const result = await magicPrompt(input);
+      setGeneratedPrompt(result.magicPrompt);
+      toast({ title: "Prompt enhanced!" });
+    } catch (error) {
+      console.error("Error enhancing prompt:", error);
+      toast({ variant: "destructive", title: "Error enhancing prompt", description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsMagicLoading(false);
+    }
+  };
+
+  const handleTranslatePrompt = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt to translate", description: "Please generate a prompt first." });
+      return;
+    }
+    setIsTranslateLoading(true);
+    try {
+      const input: TranslatePromptInput = {
+        originalPrompt: generatedPrompt,
+        targetLanguage: selectedLanguage, // Translates to the currently selected language in main dropdown
+      };
+      const result = await translatePrompt(input);
+      setGeneratedPrompt(result.translatedPrompt);
+      toast({ title: `Prompt translated to ${selectedLanguage}!`});
+    } catch (error) {
+      console.error("Error translating prompt:", error);
+      toast({ variant: "destructive", title: "Error translating prompt", description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsTranslateLoading(false);
+    }
+  };
+
+
   const handleCopyPrompt = (textToCopy: string, uniqueId?: string) => {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (uniqueId) { 
-          // Toast for history items is sufficient
-        } else { 
+        if (!uniqueId) { 
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
         }
@@ -218,13 +263,12 @@ export default function VisionaryPrompterPage() {
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    // If imagePreviewUrl is null, it means it was loaded from localStorage without image data
     if (entry.imagePreviewUrl) {
       setUploadedImage(entry.imagePreviewUrl);
     } else {
-      setUploadedImage(null); // Clear current image preview
+      setUploadedImage(null); 
     }
-    setImageFile(null); // Always clear the File object, as it's not stored
+    setImageFile(null); 
     
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -365,7 +409,7 @@ export default function VisionaryPrompterPage() {
 
             <Button 
               onClick={handleGeneratePrompt} 
-              disabled={isLoading || !uploadedImage} 
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading} 
               className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
             >
               {isLoading ? (
@@ -409,15 +453,41 @@ export default function VisionaryPrompterPage() {
                   aria-live="polite"
                 />
                 {generatedPrompt && !isLoading && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopyPrompt(generatedPrompt)}
-                    className="absolute top-2 right-2 text-muted-foreground hover:text-primary"
-                    aria-label="Copy prompt"
-                  >
-                    {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5" />}
-                  </Button>
+                  <div className="absolute top-2 right-2 flex space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleMagicPrompt}
+                      title="Magic Prompt"
+                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      className="text-muted-foreground hover:text-primary"
+                      aria-label="Enhance prompt"
+                    >
+                      {isMagicLoading ? <LoadingSpinner size="1rem" /> : <Sparkles className="h-5 w-5" />}
+                    </Button>
+                     <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleTranslatePrompt}
+                      title="Translate Prompt"
+                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      className="text-muted-foreground hover:text-primary"
+                      aria-label="Translate prompt"
+                    >
+                      {isTranslateLoading ? <LoadingSpinner size="1rem" /> : <Globe className="h-5 w-5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopyPrompt(generatedPrompt)}
+                      title="Copy Prompt"
+                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      className="text-muted-foreground hover:text-primary"
+                      aria-label="Copy prompt"
+                    >
+                      {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5" />}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -504,4 +574,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
