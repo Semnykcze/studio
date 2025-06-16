@@ -22,10 +22,10 @@ import { generateDepthMap, type GenerateDepthMapInput, type GenerateDepthMapOutp
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush as PaintbrushIcon, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush as PaintbrushIcon, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3, Layers, Palette, Info, Film, Aperture, Shapes } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
-type PromptStyleType = 'detailed' | 'creative' | 'keywords';
+type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
 
 interface HistoryEntry {
   id: string;
@@ -34,6 +34,7 @@ interface HistoryEntry {
   params: {
     targetModel: TargetModelType;
     promptStyle: PromptStyleType;
+    minWords: number;
     maxWords: number;
     outputLanguage: string;
     photoFileName?: string;
@@ -59,6 +60,7 @@ export default function VisionaryPrompterPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
+  const [minWords, setMinWords] = useState<number>(25);
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -131,6 +133,15 @@ export default function VisionaryPrompterPage() {
         const storedHistory = JSON.parse(storedHistoryJson) as Omit<HistoryEntry, 'imagePreviewUrl'>[];
         const historyWithPlaceholders = storedHistory.map(entry => ({
           ...entry,
+          // Ensure params object and its properties exist before accessing
+          params: {
+            targetModel: entry.params?.targetModel || 'Flux.1 Dev',
+            promptStyle: entry.params?.promptStyle || 'detailed',
+            minWords: entry.params?.minWords || 25,
+            maxWords: entry.params?.maxWords || 150,
+            outputLanguage: entry.params?.outputLanguage || 'English',
+            photoFileName: entry.params?.photoFileName || undefined,
+          },
           imagePreviewUrl: null, 
         }));
         setGenerationHistory(historyWithPlaceholders);
@@ -240,6 +251,15 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits to generate prompts." });
       return;
     }
+    if (minWords > maxWords) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Word Count Range",
+        description: "Minimum words cannot be greater than maximum words. Please adjust the sliders.",
+      });
+      return;
+    }
+
 
     setIsLoading(true);
     setGeneratedPrompt('');
@@ -247,6 +267,7 @@ export default function VisionaryPrompterPage() {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
         targetModel: selectedTargetModel,
+        minWords: minWords,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
         outputLanguage: selectedLanguage,
@@ -267,6 +288,7 @@ export default function VisionaryPrompterPage() {
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
+          minWords: minWords,
           maxWords: maxWords,
           outputLanguage: selectedLanguage,
           photoFileName: imageFile.name,
@@ -322,6 +344,7 @@ export default function VisionaryPrompterPage() {
     }
     setIsExtendingLoading(true);
     try {
+      // Use the current maxWords setting from the UI for the extended prompt's max length
       const input: ExtendPromptInput = {
         originalPrompt: generatedPrompt,
         promptLanguage: selectedLanguage,
@@ -394,7 +417,10 @@ export default function VisionaryPrompterPage() {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
+      } else if (typeof error === 'object' && error && 'message' in error) {
+         errorMessage = String((error as {message: string}).message);
       }
+
       toast({
         variant: "destructive",
         title: "Error Generating Depth Map",
@@ -487,11 +513,12 @@ export default function VisionaryPrompterPage() {
 
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
+    setMinWords(entry.params.minWords);
     setMaxWords(entry.params.maxWords);
     setSelectedLanguage(entry.params.outputLanguage);
     setGeneratedPrompt(entry.generatedPrompt);
-    setGeneratedDepthMap(null); // Clear depth map when loading from history
-    setImageStyleAnalysis(null); // Clear style analysis when loading from history
+    setGeneratedDepthMap(null); 
+    setImageStyleAnalysis(null);
 
 
     if (entry.imagePreviewUrl) {
@@ -626,11 +653,34 @@ export default function VisionaryPrompterPage() {
                   <SelectValue placeholder="Select prompt style" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="detailed">Detailed</SelectItem>
-                  <SelectItem value="creative">Creative</SelectItem>
-                  <SelectItem value="keywords">Keywords-based</SelectItem>
+                  <SelectItem value="detailed"><PaintbrushIcon className="mr-2 h-4 w-4 inline-block" />Detailed</SelectItem>
+                  <SelectItem value="creative"><Sparkles className="mr-2 h-4 w-4 inline-block" />Creative</SelectItem>
+                  <SelectItem value="keywords"><SlidersHorizontal className="mr-2 h-4 w-4 inline-block" />Keywords-based</SelectItem>
+                  <SelectItem value="cinematic"><Film className="mr-2 h-4 w-4 inline-block" />Cinematic</SelectItem>
+                  <SelectItem value="photorealistic"><Aperture className="mr-2 h-4 w-4 inline-block" />Photorealistic</SelectItem>
+                  <SelectItem value="abstract"><Shapes className="mr-2 h-4 w-4 inline-block" />Abstract</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="min-words-slider" className="text-sm md:text-base flex items-center">
+                  <SlidersHorizontal className="mr-2 h-4 w-4 text-primary" /> Min Prompt Words
+                </Label>
+                <span className="text-xs md:text-sm font-medium text-primary">{minWords} words</span>
+              </div>
+              <Slider
+                id="min-words-slider"
+                min={10}
+                max={100}
+                step={5}
+                value={[minWords]}
+                onValueChange={(value: number[]) => setMinWords(value[0])}
+                className="w-full"
+                disabled={anyLoading}
+              />
+               <p className="text-xs text-muted-foreground">Range: 10 - 100 words.</p>
             </div>
 
             <div className="space-y-2">
@@ -642,16 +692,17 @@ export default function VisionaryPrompterPage() {
               </div>
               <Slider
                 id="max-words-slider"
-                min={50}
-                max={250}
+                min={30} 
+                max={300}
                 step={10}
                 value={[maxWords]}
                 onValueChange={(value: number[]) => setMaxWords(value[0])}
                 className="w-full"
                 disabled={anyLoading}
               />
-               <p className="text-xs text-muted-foreground">Range: 50 - 250 words.</p>
+               <p className="text-xs text-muted-foreground">Range: 30 - 300 words. Prompt length: {minWords} - {maxWords} words.</p>
             </div>
+
 
             <Button
               onClick={handleGeneratePrompt}
@@ -836,7 +887,7 @@ export default function VisionaryPrompterPage() {
               Depth Map Analysis
             </CardTitle>
             <CardDescription className="text-sm md:text-base">
-              Generate an experimental depth map of your image. (Costs 1 credit)
+              Generate an experimental depth map of your image using fal.ai. (Costs 1 credit)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -844,7 +895,7 @@ export default function VisionaryPrompterPage() {
               <Info className="h-4 w-4 text-primary" />
               <AlertTitle className="font-semibold text-primary/90">Experimental Feature</AlertTitle>
               <AlertDescription className="text-muted-foreground text-xs">
-                Depth map generation uses fal.ai (Depth Anything V2). Quality may vary. Ensure FAL_KEY_ID and FAL_KEY_SECRET are in .env.
+                Depth map generation uses fal.ai (Depth Anything V2). Quality may vary. Ensure FAL_KEY_ID and FAL_KEY_SECRET (or FAL_KEY) are in .env for fal.ai authentication.
               </AlertDescription>
             </Alert>
             <Button
@@ -916,7 +967,7 @@ export default function VisionaryPrompterPage() {
                       <p><strong>Target Model:</strong> {entry.params.targetModel}</p>
                       <p><strong>Language:</strong> {entry.params.outputLanguage}</p>
                       <p><strong>Style:</strong> {entry.params.promptStyle}</p>
-                      <p><strong>Max Words:</strong> {entry.params.maxWords}</p>
+                      <p><strong>Word Count:</strong> {entry.params.minWords} - {entry.params.maxWords}</p>
                     </div>
                     <div className="relative">
                       <Textarea
