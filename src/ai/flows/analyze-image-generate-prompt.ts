@@ -58,7 +58,7 @@ Your task is to analyze the provided image using a powerful vision model and gen
     {{#if allowNsfw}}
     - You are permitted to generate prompts that may lead to content of a sensual or artistic nude nature if directly implied by the image and other parameters. However, avoid gratuitously explicit, illegal, or harmful content. Adhere to responsible AI guidelines.
     {{else}}
-    - **Strictly avoid any NSFW (Not Safe For Work) content.** This includes, but is not limited to, sexually explicit descriptions, inappropriate nudity, violence, or other adult themes. The generated prompt must be suitable for all general audiences. If the image contains elements that could lead to an NSFW interpretation, focus your description on neutral, safe-for-work aspects only.
+    - **Strictly avoid any NSFW (Not Safe For Work) content.** This includes, but is not limited to, sexually explicit descriptions, inappropriate nudity, violence, or other adult themes. The generated prompt must be suitable for all general audiences. If the image contains elements that could lead to an NSFW interpretation, focus your description on neutral, safe-for-work aspects only. **Furthermore, the prompt must not contain words such as 'nude', 'naked', 'bare', 'nsfw', 'ass', 'breasts', 'pussy', 'sex', 'sexual', 'erotic', or other similar explicit terms.**
     {{/if}}
 -   **Target Model Specifics:**
     -   If Target Model is "Flux.1 Dev": Focus on clear, descriptive language. Emphasize key subjects, actions, and the environment. Consider aspect ratio or specific camera angles if evident or important.
