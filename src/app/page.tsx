@@ -11,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
@@ -37,6 +38,9 @@ interface HistoryEntry {
 
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
+const INITIAL_CREDITS = 10;
+const LOCAL_STORAGE_CREDITS_KEY = 'visionaryPrompterCredits';
+
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export default function VisionaryPrompterPage() {
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
+  const [credits, setCredits] = useState<number>(INITIAL_CREDITS);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -75,6 +80,30 @@ export default function VisionaryPrompterPage() {
         description: "History data might be corrupted and has been cleared.",
       });
     }
+
+    try {
+      const storedCredits = localStorage.getItem(LOCAL_STORAGE_CREDITS_KEY);
+      if (storedCredits !== null) {
+        const parsedCredits = parseInt(storedCredits, 10);
+        if (!isNaN(parsedCredits)) {
+          setCredits(parsedCredits);
+        } else {
+          localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
+          setCredits(INITIAL_CREDITS);
+        }
+      } else {
+         localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
+      }
+    } catch (error) {
+      console.error("Error loading credits from localStorage:", error);
+      localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(INITIAL_CREDITS));
+      setCredits(INITIAL_CREDITS);
+      toast({
+        variant: "destructive",
+        title: "Failed to load credits",
+        description: "Credits have been reset to default.",
+      });
+    }
   }, [toast]);
 
   useEffect(() => {
@@ -93,6 +122,20 @@ export default function VisionaryPrompterPage() {
       });
     }
   }, [generationHistory, toast]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_CREDITS_KEY, String(credits));
+    } catch (error) {
+      console.error("Error saving credits to localStorage:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to save credits",
+        description: "Could not save current credit count.",
+      });
+    }
+  }, [credits, toast]);
+
 
   const languageOptions: { value: string; label: string }[] = [
     { value: 'English', label: 'English' },
@@ -145,6 +188,15 @@ export default function VisionaryPrompterPage() {
       return;
     }
 
+    if (credits <= 0) {
+      toast({
+        variant: "destructive",
+        title: "No credits left",
+        description: "You have run out of credits to generate prompts.",
+      });
+      return;
+    }
+
     setIsLoading(true);
     setGeneratedPrompt('');
     try {
@@ -157,6 +209,7 @@ export default function VisionaryPrompterPage() {
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
+      setCredits(prev => Math.max(0, prev - 1)); // Decrease credits
 
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
@@ -200,7 +253,7 @@ export default function VisionaryPrompterPage() {
     try {
       const input: MagicPromptInput = {
         originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage, // Assumes current prompt is in selectedLanguage or LLM can handle it
+        promptLanguage: selectedLanguage, 
       };
       const result = await magicPrompt(input);
       setGeneratedPrompt(result.magicPrompt);
@@ -222,7 +275,7 @@ export default function VisionaryPrompterPage() {
     try {
       const input: TranslatePromptInput = {
         originalPrompt: generatedPrompt,
-        targetLanguage: selectedLanguage, // Translates to the currently selected language in main dropdown
+        targetLanguage: selectedLanguage,
       };
       const result = await translatePrompt(input);
       setGeneratedPrompt(result.translatedPrompt);
@@ -306,11 +359,19 @@ export default function VisionaryPrompterPage() {
       <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
         <Card className="shadow-xl rounded-lg">
           <CardHeader>
-            <CardTitle className="text-2xl font-headline flex items-center">
-              <UploadCloud className="mr-2 h-6 w-6 text-primary" />
-              Configure & Generate
-            </CardTitle>
-            <CardDescription>Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
+            <div className="flex justify-between items-start">
+                <div className="flex-grow">
+                    <CardTitle className="text-2xl font-headline flex items-center">
+                    <UploadCloud className="mr-2 h-6 w-6 text-primary" />
+                    Configure & Generate
+                    </CardTitle>
+                    <CardDescription>Upload your image and set generation parameters. Analysis is done by Gemini.</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-base ml-4 shrink-0">
+                    <Coins className="mr-2 h-5 w-5 text-primary" />
+                    Credits: {credits}
+                </Badge>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -409,8 +470,9 @@ export default function VisionaryPrompterPage() {
 
             <Button 
               onClick={handleGeneratePrompt} 
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading} 
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits <= 0} 
               className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
+              aria-label={credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
               {isLoading ? (
                 <LoadingSpinner size="1.25rem" className="mr-2" />
@@ -419,6 +481,9 @@ export default function VisionaryPrompterPage() {
               )}
               Generate Prompt
             </Button>
+             {credits <= 0 && (
+              <p className="text-sm text-center text-destructive">You have run out of credits. </p>
+            )}
           </CardContent>
         </Card>
 
@@ -453,7 +518,7 @@ export default function VisionaryPrompterPage() {
                   aria-live="polite"
                 />
                 {generatedPrompt && !isLoading && (
-                  <div className="absolute top-2 right-2 flex space-x-1">
+                  <div className="absolute top-2 right-2 flex space-x-1 bg-card/80 backdrop-blur-sm p-1 rounded-lg shadow-md">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -574,3 +639,5 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
+    
