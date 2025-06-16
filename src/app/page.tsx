@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
+import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, Coins, Edit3 } from 'lucide-react';
 
@@ -59,6 +60,7 @@ export default function VisionaryPrompterPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
+  const [isExtendingLoading, setIsExtendingLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   
@@ -297,16 +299,38 @@ export default function VisionaryPrompterPage() {
     try {
       const input: MagicPromptInput = {
         originalPrompt: generatedPrompt,
-        promptLanguage: selectedLanguage, // Assuming magic prompt should be in the current output language
+        promptLanguage: selectedLanguage, 
       };
       const result = await magicPrompt(input);
-      setGeneratedPrompt(result.magicPrompt); // Update the main prompt area
-      toast({ title: "Prompt enhanced!" });
+      setGeneratedPrompt(result.magicPrompt); 
+      toast({ title: "Prompt enhanced with magic!" });
     } catch (error) {
-      console.error("Error enhancing prompt:", error);
+      console.error("Error enhancing prompt with magic:", error);
       toast({ variant: "destructive", title: "Error enhancing prompt", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsMagicLoading(false);
+    }
+  };
+
+  const handleExtendPrompt = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt to extend", description: "Please generate a prompt first." });
+      return;
+    }
+    setIsExtendingLoading(true);
+    try {
+      const input: ExtendPromptInput = {
+        originalPrompt: generatedPrompt,
+        promptLanguage: selectedLanguage,
+      };
+      const result = await extendPrompt(input);
+      setGeneratedPrompt(result.extendedPrompt);
+      toast({ title: "Prompt extended!" });
+    } catch (error) {
+      console.error("Error extending prompt:", error);
+      toast({ variant: "destructive", title: "Error extending prompt", description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsExtendingLoading(false);
     }
   };
 
@@ -319,10 +343,10 @@ export default function VisionaryPrompterPage() {
     try {
       const input: TranslatePromptInput = {
         originalPrompt: generatedPrompt,
-        targetLanguage: selectedLanguage, // Translate to the currently selected output language
+        targetLanguage: selectedLanguage, 
       };
       const result = await translatePrompt(input);
-      setGeneratedPrompt(result.translatedPrompt); // Update the main prompt area
+      setGeneratedPrompt(result.translatedPrompt); 
       toast({ title: `Prompt translated to ${selectedLanguage}!`});
     } catch (error) {
       console.error("Error translating prompt:", error);
@@ -337,7 +361,7 @@ export default function VisionaryPrompterPage() {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (!uniqueId) { // Only set main copy status if not from history item
+        if (!uniqueId) { 
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
         }
@@ -355,20 +379,16 @@ export default function VisionaryPrompterPage() {
       localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY);
     } catch (error) {
        console.error("Error clearing history from localStorage:", error);
-       // Optionally notify user of this specific error if deemed necessary
     }
     toast({ title: "Generation history cleared." });
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    // Set image preview if available (will be for current session items, null for localStorage reloaded)
     if (entry.imagePreviewUrl) {
       setUploadedImage(entry.imagePreviewUrl);
     } else {
-      // If no imagePreviewUrl, clear the current image preview
       setUploadedImage(null);
     }
-    // We don't store the File object, so imageFile is always null when loading from history
     setImageFile(null); 
 
     setSelectedTargetModel(entry.params.targetModel);
@@ -377,14 +397,13 @@ export default function VisionaryPrompterPage() {
     setSelectedLanguage(entry.params.outputLanguage);
     setGeneratedPrompt(entry.generatedPrompt);
 
-    // Provide feedback to the user
     if (entry.imagePreviewUrl) {
         toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown."});
     } else {
         toast({
             title: "Settings loaded from history",
             description: `${entry.params.photoFileName ? `Original image: ${entry.params.photoFileName}. ` : ''}Image data is not stored in history. Please re-upload the image if you want to generate a new prompt with it.`,
-            duration: 5000, // Longer duration for important info
+            duration: 5000, 
         });
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -399,10 +418,10 @@ export default function VisionaryPrompterPage() {
     const newId = newSessionIdInput.trim();
     
     localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
-    setSessionId(newId); // This will trigger the useEffect for loading/initializing credits for the new sessionId
+    setSessionId(newId); 
     
     setIsEditingSessionId(false);
-    setNewSessionIdInput(""); // Clear input field
+    setNewSessionIdInput(""); 
 
     toast({ title: "Session ID Changed", description: `Switched from ${oldSessionId || 'N/A'} to ${newId}. Credits for the new session will be loaded.` });
   };
@@ -536,7 +555,7 @@ export default function VisionaryPrompterPage() {
 
             <Button
               onClick={handleGeneratePrompt}
-              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || credits === null || credits <= 0}
+              disabled={isLoading || !uploadedImage || isMagicLoading || isTranslateLoading || isExtendingLoading || credits === null || credits <= 0}
               className="w-full text-md md:text-lg py-3 md:py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
               aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
             >
@@ -590,18 +609,29 @@ export default function VisionaryPrompterPage() {
                       size="icon"
                       onClick={handleMagicPrompt}
                       title="Magic Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
-                      aria-label="Enhance prompt"
+                      aria-label="Enhance prompt with magic"
                     >
                       {isMagicLoading ? <LoadingSpinner size="0.9rem" /> : <Sparkles className="h-4 w-4 md:h-5 md:w-5" />}
                     </Button>
                      <Button
                       variant="ghost"
                       size="icon"
+                      onClick={handleExtendPrompt}
+                      title="Extend Prompt"
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
+                      className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
+                      aria-label="Extend prompt"
+                    >
+                      {isExtendingLoading ? <LoadingSpinner size="0.9rem" /> : <Edit3 className="h-4 w-4 md:h-5 md:w-5" />}
+                    </Button>
+                     <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={handleTranslatePrompt}
                       title="Translate Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
                       aria-label="Translate prompt"
                     >
@@ -612,7 +642,7 @@ export default function VisionaryPrompterPage() {
                       size="icon"
                       onClick={() => handleCopyPrompt(generatedPrompt)}
                       title="Copy Prompt"
-                      disabled={isMagicLoading || isTranslateLoading || isLoading}
+                      disabled={isMagicLoading || isTranslateLoading || isExtendingLoading || isLoading}
                       className="text-muted-foreground hover:text-primary h-7 w-7 md:h-8 md:w-8"
                       aria-label="Copy prompt"
                     >
@@ -685,7 +715,7 @@ export default function VisionaryPrompterPage() {
                         className="absolute top-1 right-1 md:top-2 md:right-2 text-muted-foreground hover:text-primary h-6 w-6 md:h-7 md:w-7"
                         aria-label="Copy prompt from history"
                       >
-                        <Copy className="h-3 w-3 md:h-4 md:w-4" />
+                        <Copy className="h-3 w-3 md:h-4 md:h-4" />
                       </Button>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)}>
@@ -743,4 +773,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
