@@ -18,7 +18,7 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
     .describe(
       "A photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  modelType: z.enum(['gemini', 'gemma']).default('gemini').describe("The type of AI model to use for analysis: 'gemini' (uses a powerful Gemini model like 1.5 Flash) or 'gemma' (uses a large Gemma 2 open model like Gemma 2 9B)."),
+  modelType: z.enum(['gemini', 'gemma']).default('gemini').describe("The type of AI model to use for analysis: 'gemini' (uses a powerful Gemini model like 1.5 Flash) or 'gemma' (uses a capable Gemma 7B open model)."),
   targetModel: z.string().default('Flux.1 Dev').describe('The target model for which the prompt should be optimized (e.g., Flux.1 Dev, Midjourney, Stable Diffusion, General Text).'),
   maxWords: z.number().min(50).max(250).default(150).describe('The maximum number of words for the generated prompt (50-250).'),
   promptStyle: z.enum(['detailed', 'creative', 'keywords']).default('detailed').describe('The desired style of the generated prompt: detailed, creative, or keywords.'),
@@ -77,7 +77,7 @@ const analyzeImageGeneratePromptFlow = ai.defineFlow(
     let model: ModelArgument = 'googleai/gemini-1.5-flash-latest'; // Default to Gemini Flash
 
     if (input.modelType === 'gemma') {
-      model = 'googleai/gemma2-9b-it'; // Updated to Gemma 2 9B
+      model = 'googleai/gemma-7b-it'; // Changed to Gemma 7B
     } else if (input.modelType === 'gemini') {
       model = 'googleai/gemini-1.5-flash-latest';
     }

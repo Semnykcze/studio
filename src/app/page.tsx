@@ -162,8 +162,8 @@ export default function VisionaryPrompterPage() {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        if (uniqueId) { // For history items
-          // Potentially set a specific copied state for history items if needed
+        if (uniqueId) { 
+          // For history items, toast is enough
         } else { // For main prompt
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
@@ -260,7 +260,7 @@ export default function VisionaryPrompterPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">Gemini (Powerful Proprietary Model)</SelectItem>
-                  <SelectItem value="gemma">Gemma 2 9B (Powerful Open Model)</SelectItem>
+                  <SelectItem value="gemma">Gemma 7B (Capable Open Model)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
