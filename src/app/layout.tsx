@@ -29,17 +29,18 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
         <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2">
-          <CreditsDisplay />
-          <Button variant="outline" size="icon" className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="User Profile (Placeholder)">
-            <User className="h-[1.1rem] w-[1.1rem]" />
-          </Button>
+          {/* Reversed Order: ThemeToggle, AppSwitcher, Settings, User, Credits */}
+          <ThemeToggleButton />
+          <AppSwitcherButton />
           <Button variant="outline" size="icon" asChild className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="Settings">
             <Link href="/admin">
               <Settings className="h-[1.1rem] w-[1.1rem]" />
             </Link>
           </Button>
-          <AppSwitcherButton />
-          <ThemeToggleButton />
+          <Button variant="outline" size="icon" className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="User Profile (Placeholder)">
+            <User className="h-[1.1rem] w-[1.1rem]" />
+          </Button>
+          <CreditsDisplay />
         </div>
         <main className="flex-grow">
           {children}
