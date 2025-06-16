@@ -13,10 +13,11 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush } from 'lucide-react';
 
 type AnalysisModelType = 'gemini' | 'gemma';
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
+type PromptStyleType = 'detailed' | 'creative' | 'keywords';
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export default function VisionaryPrompterPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [selectedAnalysisModel, setSelectedAnalysisModel] = useState<AnalysisModelType>('gemini');
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
+  const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
   const [maxWords, setMaxWords] = useState<number>(150);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -79,6 +81,7 @@ export default function VisionaryPrompterPage() {
         modelType: selectedAnalysisModel,
         targetModel: selectedTargetModel,
         maxWords: maxWords,
+        promptStyle: selectedPromptStyle,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
@@ -188,6 +191,22 @@ export default function VisionaryPrompterPage() {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="prompt-style-select" className="text-base flex items-center">
+                 <Paintbrush className="mr-2 h-4 w-4 text-primary" /> Prompt Style
+              </Label>
+              <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)}>
+                <SelectTrigger id="prompt-style-select" className="w-full text-base">
+                  <SelectValue placeholder="Select prompt style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="detailed">Detailed</SelectItem>
+                  <SelectItem value="creative">Creative</SelectItem>
+                  <SelectItem value="keywords">Keywords-based</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="max-words-slider" className="text-base flex items-center">

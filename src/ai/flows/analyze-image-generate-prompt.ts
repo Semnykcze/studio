@@ -20,6 +20,7 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
   modelType: z.enum(['gemini', 'gemma']).default('gemini').describe('The type of AI model to use for analysis: gemini or gemma.'),
   targetModel: z.string().default('Flux.1 Dev').describe('The target model for which the prompt should be optimized (e.g., Flux.1 Dev, Midjourney, Stable Diffusion, General Text).'),
   maxWords: z.number().min(50).max(250).default(150).describe('The maximum number of words for the generated prompt (50-250).'),
+  promptStyle: z.enum(['detailed', 'creative', 'keywords']).default('detailed').describe('The desired style of the generated prompt: detailed, creative, or keywords.'),
 });
 export type AnalyzeImageGeneratePromptInput = z.infer<typeof AnalyzeImageGeneratePromptInputSchema>;
 
@@ -38,11 +39,20 @@ const analyzeImageGeneratePromptPrompt = ai.definePrompt({
   output: {schema: AnalyzeImageGeneratePromptOutputSchema},
   prompt: `You are an expert in analyzing images and generating prompts for AI image generation models.
 
-Based on the image provided, generate a prompt optimized for the "{{{targetModel}}}" model that would allow a user to recreate the image.
-The prompt must be a maximum of {{{maxWords}}} words.
-If the user selected "General Text" as the target model, create a descriptive text about the image instead of a model-specific prompt.
+Your task is to analyze the provided image and generate an output based on the following parameters:
+1.  Target Model: "{{{targetModel}}}"
+2.  Maximum Words: {{{maxWords}}}
+3.  Prompt Style: "{{{promptStyle}}}"
 
-Consider details like objects present, colors, styles, and overall composition.
+Instructions for Prompt Style:
+- If Prompt Style is "detailed": Create a very detailed output, capturing as much visual information as possible including specific objects, their attributes, colors, textures, lighting, composition, and any artistic style.
+- If Prompt Style is "creative": Create a creative and evocative output, suggesting a story or a unique interpretation of the image, while still being grounded in its visual elements. Focus on mood, atmosphere, and imaginative descriptions.
+- If Prompt Style is "keywords": Generate a comma-separated list of keywords describing the main elements, colors, and style of the image. For example: "cat, tabby, sitting, window, sunlight".
+
+If the Target Model is "General Text", the output should be a descriptive text about the image, formatted according to the chosen Prompt Style.
+Otherwise, the output should be a prompt optimized for the specified Target Model, also formatted according to the Prompt Style.
+
+The generated output must adhere to the maximum word count ({{{maxWords}}}).
 
 Image for analysis:
 {{media url=photoDataUri}}
