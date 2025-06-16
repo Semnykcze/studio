@@ -1,23 +1,42 @@
 
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from "@/components/ui/slider";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush } from 'lucide-react';
+import { UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, Paintbrush, Languages, History, Trash2, DownloadCloud } from 'lucide-react';
 
 type AnalysisModelType = 'gemini' | 'gemma';
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'General Text';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords';
+
+interface HistoryEntry {
+  id: string;
+  timestamp: string;
+  imagePreviewUrl: string;
+  params: {
+    modelType: AnalysisModelType;
+    targetModel: TargetModelType;
+    promptStyle: PromptStyleType;
+    maxWords: number;
+    outputLanguage: string;
+    photoFileName?: string;
+  };
+  generatedPrompt: string;
+}
+
+const MAX_HISTORY_ITEMS = 10;
+const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -27,16 +46,40 @@ export default function VisionaryPrompterPage() {
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
   const [maxWords, setMaxWords] = useState<number>(150);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('English'); // Full names for display
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const storedHistory = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
+    if (storedHistory) {
+      setGenerationHistory(JSON.parse(storedHistory));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_HISTORY_KEY, JSON.stringify(generationHistory));
+  }, [generationHistory]);
+
+  const languageOptions: { value: string; label: string }[] = [
+    { value: 'English', label: 'English' },
+    { value: 'Czech', label: 'Čeština (Czech)' },
+    { value: 'Spanish', label: 'Español (Spanish)' },
+    { value: 'French', label: 'Français (French)' },
+    { value: 'German', label: 'Deutsch (German)' },
+    { value: 'Japanese', label: '日本語 (Japanese)' },
+    { value: 'Korean', label: '한국어 (Korean)' },
+    { value: 'Chinese', label: '中文 (Chinese)' },
+  ];
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) { // Limit file size to 4MB
+      if (file.size > 4 * 1024 * 1024) {
         toast({
           variant: "destructive",
           title: "Image too large",
@@ -59,7 +102,7 @@ export default function VisionaryPrompterPage() {
         setUploadedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      setGeneratedPrompt(''); // Clear previous prompt
+      setGeneratedPrompt('');
     }
   };
 
@@ -82,9 +125,27 @@ export default function VisionaryPrompterPage() {
         targetModel: selectedTargetModel,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
+        outputLanguage: selectedLanguage,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
+
+      const newHistoryEntry: HistoryEntry = {
+        id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
+        timestamp: new Date().toLocaleString(),
+        imagePreviewUrl: uploadedImage,
+        params: {
+          modelType: selectedAnalysisModel,
+          targetModel: selectedTargetModel,
+          promptStyle: selectedPromptStyle,
+          maxWords: maxWords,
+          outputLanguage: selectedLanguage,
+          photoFileName: imageFile.name,
+        },
+        generatedPrompt: result.prompt,
+      };
+      setGenerationHistory(prev => [newHistoryEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
+
     } catch (error) {
       console.error("Error generating prompt:", error);
       toast({
@@ -97,19 +158,47 @@ export default function VisionaryPrompterPage() {
     }
   };
 
-  const handleCopyPrompt = () => {
-    if (!generatedPrompt) return;
-    navigator.clipboard.writeText(generatedPrompt)
+  const handleCopyPrompt = (textToCopy: string, uniqueId?: string) => {
+    if (!textToCopy) return;
+    navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        setIsCopied(true);
+        if (uniqueId) { // For history items
+          // Potentially set a specific copied state for history items if needed
+        } else { // For main prompt
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        }
         toast({ title: "Prompt copied to clipboard!" });
-        setTimeout(() => setIsCopied(false), 2000);
       })
       .catch(err => {
         console.error("Failed to copy prompt:", err);
         toast({ variant: "destructive", title: "Failed to copy prompt" });
       });
   };
+
+  const clearHistory = () => {
+    setGenerationHistory([]);
+    toast({ title: "Generation history cleared." });
+  };
+
+  const loadFromHistory = (entry: HistoryEntry) => {
+    setUploadedImage(entry.imagePreviewUrl);
+    // Note: We can't re-set the imageFile from data URI directly for security reasons.
+    // User would need to re-upload if they want to re-generate with the *exact* same file.
+    // We can, however, restore other parameters.
+    setImageFile(null); // Indicate that parameters are loaded, but file needs re-upload for new generation.
+    
+    setSelectedAnalysisModel(entry.params.modelType);
+    setSelectedTargetModel(entry.params.targetModel);
+    setSelectedPromptStyle(entry.params.promptStyle);
+    setMaxWords(entry.params.maxWords);
+    setSelectedLanguage(entry.params.outputLanguage);
+    setGeneratedPrompt(entry.generatedPrompt);
+
+    toast({ title: "Settings loaded from history", description: entry.params.photoFileName ? `Image: ${entry.params.photoFileName} (preview shown)` : "Image preview shown. Re-upload if regenerating."});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-background text-foreground">
@@ -121,12 +210,12 @@ export default function VisionaryPrompterPage() {
           </h1>
         </div>
         <p className="text-lg md:text-xl text-muted-foreground">
-          Upload an image, and let AI craft the perfect prompt.
+          Upload an image, and let AI craft the perfect prompt in your chosen language and style.
         </p>
       </header>
 
       <main className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="shadow-xl">
+        <Card className="shadow-xl rounded-lg">
           <CardHeader>
             <CardTitle className="text-2xl font-headline flex items-center">
               <UploadCloud className="mr-2 h-6 w-6 text-primary" />
@@ -170,8 +259,8 @@ export default function VisionaryPrompterPage() {
                   <SelectValue placeholder="Select analysis model" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini">Gemini</SelectItem>
-                  <SelectItem value="gemma">Gemma (Free, No API Key)</SelectItem>
+                  <SelectItem value="gemini">Gemini (Powerful Proprietary Model)</SelectItem>
+                  <SelectItem value="gemma">Gemma 2 9B (Powerful Open Model)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -187,6 +276,22 @@ export default function VisionaryPrompterPage() {
                   <SelectItem value="Midjourney">Midjourney</SelectItem>
                   <SelectItem value="Stable Diffusion">Stable Diffusion</SelectItem>
                   <SelectItem value="General Text">General Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="language-select" className="text-base flex items-center">
+                <Languages className="mr-2 h-4 w-4 text-primary" /> Output Language
+              </Label>
+              <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)}>
+                <SelectTrigger id="language-select" className="w-full text-base">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {languageOptions.map(lang => (
+                    <SelectItem key={lang.value} value={lang.value}>{lang.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -226,11 +331,10 @@ export default function VisionaryPrompterPage() {
                <p className="text-xs text-muted-foreground">Range: 50 - 250 words.</p>
             </div>
 
-
             <Button 
               onClick={handleGeneratePrompt} 
               disabled={isLoading || !uploadedImage} 
-              className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
             >
               {isLoading ? (
                 <LoadingSpinner size="1.25rem" className="mr-2" />
@@ -242,7 +346,7 @@ export default function VisionaryPrompterPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-xl">
+        <Card className="shadow-xl rounded-lg">
           <CardHeader>
             <CardTitle className="text-2xl font-headline flex items-center">
               <ImageIcon className="mr-2 h-6 w-6 text-primary" />
@@ -269,14 +373,14 @@ export default function VisionaryPrompterPage() {
                   value={generatedPrompt}
                   readOnly
                   placeholder={isLoading ? "Generating your visionary prompt..." : "Your AI-generated prompt will appear here..."}
-                  className="min-h-[150px] text-base bg-muted/50 focus-visible:ring-accent"
+                  className="min-h-[150px] text-base bg-muted/50 focus-visible:ring-accent rounded-md"
                   aria-live="polite"
                 />
                 {generatedPrompt && !isLoading && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={handleCopyPrompt}
+                    onClick={() => handleCopyPrompt(generatedPrompt)}
                     className="absolute top-2 right-2 text-muted-foreground hover:text-primary"
                     aria-label="Copy prompt"
                   >
@@ -290,14 +394,76 @@ export default function VisionaryPrompterPage() {
                   <LoadingSpinner size="2rem" message="Analyzing image & crafting prompt..." />
                 </div>
               )}
-            
           </CardContent>
         </Card>
       </main>
+
+      {generationHistory.length > 0 && (
+        <Card className="w-full max-w-5xl mt-8 shadow-xl rounded-lg">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center">
+              <History className="mr-2 h-6 w-6 text-primary" />
+              <CardTitle className="text-2xl font-headline">Generation History</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={clearHistory} className="text-destructive hover:bg-destructive/10 border-destructive/50">
+              <Trash2 className="mr-2 h-4 w-4" /> Clear History
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {generationHistory.map((entry, index) => (
+                <AccordionItem value={`item-${index}`} key={entry.id} className="border-b-input">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-16 h-12 relative rounded overflow-hidden border border-input shrink-0">
+                        <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium text-sm truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px]" title={entry.params.photoFileName || 'Uploaded Image'}>
+                          {entry.params.photoFileName || 'Uploaded Image'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-4 space-y-3">
+                    <div className="text-sm text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md border border-input">
+                      <p><strong>Analysis Model:</strong> {entry.params.modelType}</p>
+                      <p><strong>Target Model:</strong> {entry.params.targetModel}</p>
+                      <p><strong>Language:</strong> {entry.params.outputLanguage}</p>
+                      <p><strong>Style:</strong> {entry.params.promptStyle}</p>
+                      <p><strong>Max Words:</strong> {entry.params.maxWords}</p>
+                    </div>
+                    <div className="relative">
+                      <Textarea
+                        value={entry.generatedPrompt}
+                        readOnly
+                        className="min-h-[100px] text-sm bg-muted/50 rounded-md"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleCopyPrompt(entry.generatedPrompt, entry.id)}
+                        className="absolute top-2 right-2 text-muted-foreground hover:text-primary"
+                        aria-label="Copy prompt from history"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)}>
+                      <DownloadCloud className="mr-2 h-4 w-4" /> Load these settings & prompt
+                    </Button>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+      )}
+
       <footer className="mt-12 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. Harnessing AI for creative expression.</p>
       </footer>
     </div>
   );
 }
-
