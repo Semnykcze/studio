@@ -603,7 +603,6 @@ export default function VisionaryPrompterPage() {
                         id="word-count-slider"
                         min={OVERALL_MIN_WORDS} max={OVERALL_MAX_WORDS} step={5}
                         value={[minWords, maxWords]} onValueChange={handleWordCountChange}
-                        className="w-full [&>span:nth-child(2)]:bg-primary [&>span:nth-child(3)]:bg-primary h-1.5"
                         disabled={anyLoading}
                         aria-label={`Word count range slider, current range ${minWords} to ${maxWords} words.`}
                     />
@@ -854,3 +853,4 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+

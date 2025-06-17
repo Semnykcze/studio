@@ -95,23 +95,29 @@ const analyzeImageGeneratePromptFlow = ai.defineFlow(
       throw new Error('Minimum words cannot be greater than maximum words.');
     }
 
-    const safetySettings: SafetySetting[] = [
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      // HARM_CATEGORY_CIVIC_INTEGRITY is not available for Gemini 1.5 Flash as per some tests, let's omit if problematic
-      // { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ];
+    let safetySettings: SafetySetting[] | undefined = undefined;
 
     if (input.allowNsfw) {
-      // Allows for artistic nudity or sensual themes, but still blocks overtly explicit content.
-      safetySettings.push({ category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' });
+      // When NSFW is allowed, try to minimize safety filtering by setting thresholds to BLOCK_NONE.
+      // Note: Some harmful content might still be blocked by non-configurable model safeguards.
+      safetySettings = [
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      ];
     } else {
-      // Stricter setting for sexually explicit content when NSFW is not allowed.
-      safetySettings.push({ category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' });
+      // Stricter settings when NSFW is not allowed.
+      safetySettings = [
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+      ];
     }
 
     const {output} = await analyzeImageGeneratePromptPrompt(input, {model, config: { safetySettings }});
     return output!;
   }
 );
+
