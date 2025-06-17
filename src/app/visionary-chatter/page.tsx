@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { visionaryChatter, type VisionaryChatterInput, type Message as GenkitMessage, PartType } from '@/ai/flows/visionary-chatter-flow';
+import { visionaryChatter, type VisionaryChatterInput, type Message as GenkitMessage, type PartType } from '@/ai/flows/visionary-chatter-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { Bot, User, Send, MessageCircle, Paperclip, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
-  imagePreviews?: string[]; 
+  sentPhotoDataUris?: string[]; // Store data URIs of images sent with this message
   timestamp: Date;
 }
 
@@ -29,7 +29,7 @@ export default function VisionaryChatterPage() {
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [currentImagePreviews, setCurrentImagePreviews] = useState<string[]>([]); // Renamed
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +81,7 @@ export default function VisionaryChatterPage() {
       });
 
       setUploadedImages(prev => [...prev, ...validFiles]);
-      setImagePreviews(prev => [...prev, ...newPreviewsToAdd]);
+      setCurrentImagePreviews(prev => [...prev, ...newPreviewsToAdd]); // Use renamed setter
     }
     if (event.target) { 
         event.target.value = "";
@@ -89,7 +89,7 @@ export default function VisionaryChatterPage() {
   };
 
   const removeImage = (indexToRemove: number) => {
-    setImagePreviews(prev => {
+    setCurrentImagePreviews(prev => { // Use renamed state
       const urlToRemove = prev[indexToRemove];
       if (urlToRemove) URL.revokeObjectURL(urlToRemove);
       return prev.filter((_, i) => i !== indexToRemove);
@@ -116,22 +116,11 @@ export default function VisionaryChatterPage() {
 
     const userMessageText = currentMessage.trim();
     
-    const userMessageEntry: ChatMessage = {
-      id: Date.now().toString() + '-user',
-      sender: 'user',
-      text: userMessageText,
-      imagePreviews: [...imagePreviews], 
-      timestamp: new Date(),
-    };
-    setMessages((prevMessages) => [...prevMessages, userMessageEntry]);
-    
-    setCurrentMessage('');
-    
     setIsLoading(true);
 
-    let photoDataUris: string[] = [];
+    let photoDataUrisForCurrentMessage: string[] = [];
     try {
-      photoDataUris = await convertFilesToDataUris(uploadedImages);
+      photoDataUrisForCurrentMessage = await convertFilesToDataUris(uploadedImages);
     } catch (error) {
       console.error("Error converting images to data URIs:", error);
       toast({ variant: "destructive", title: "Image Processing Error", description: "Could not process uploaded images." });
@@ -139,27 +128,48 @@ export default function VisionaryChatterPage() {
       return;
     }
     
-    imagePreviews.forEach(preview => URL.revokeObjectURL(preview));
-    setImagePreviews([]);
-    setUploadedImages([]);
-
-
-    const genkitHistory: GenkitMessage[] = messages
-      .filter(msg => msg.id !== 'initial-greeting') 
-      .map((msg): GenkitMessage => {
+    // Construct history for Genkit from messages *before* adding the current one
+    const historyForGenkit: GenkitMessage[] = messages
+      .filter(msg => msg.id !== 'initial-greeting')
+      .map((msg): GenkitMessage => { // msg here is ChatMessage
         const parts: PartType[] = [];
-        if (msg.text) parts.push({ text: msg.text });
+        if (msg.text) {
+          parts.push({ text: msg.text });
+        }
+        if (msg.sender === 'user' && msg.sentPhotoDataUris) {
+          msg.sentPhotoDataUris.forEach(uri => {
+            const match = uri.match(/^data:(image\/[^;]+);base64,/);
+            const contentType = match ? match[1] : undefined;
+            parts.push({ media: { url: uri, contentType } });
+          });
+        }
         return {
           role: msg.sender === 'user' ? 'user' : 'model',
           parts: parts,
         };
       });
+
+    const userMessageEntry: ChatMessage = {
+      id: Date.now().toString() + '-user',
+      sender: 'user',
+      text: userMessageText,
+      sentPhotoDataUris: photoDataUrisForCurrentMessage.length > 0 ? [...photoDataUrisForCurrentMessage] : undefined,
+      timestamp: new Date(),
+    };
+    setMessages((prevMessages) => [...prevMessages, userMessageEntry]);
+    
+    setCurrentMessage('');
+    
+    // Clean up current selections after they are processed and stored in userMessageEntry
+    currentImagePreviews.forEach(preview => URL.revokeObjectURL(preview));
+    setCurrentImagePreviews([]);
+    setUploadedImages([]);
     
     try {
       const input: VisionaryChatterInput = {
         message: userMessageText,
-        photoDataUris: photoDataUris.length > 0 ? photoDataUris : undefined,
-        history: genkitHistory,
+        photoDataUris: photoDataUrisForCurrentMessage.length > 0 ? photoDataUrisForCurrentMessage : undefined,
+        history: historyForGenkit,
       };
       const result = await visionaryChatter(input);
 
@@ -172,13 +182,16 @@ export default function VisionaryChatterPage() {
       setMessages((prevMessages) => [...prevMessages, aiMessage]);
     } catch (error) {
       console.error('Error calling Visionary Chatter flow:', error);
-      const errorMessage: ChatMessage = {
+      const errorMessageText = error instanceof Error ? error.message : "Sorry, I encountered an error processing your request.";
+      const errorResponseMessage = `Sorry, I encountered an error: ${errorMessageText}. Please try again.`;
+      
+      const errorMessageEntry: ChatMessage = {
         id: Date.now().toString() + '-error',
         sender: 'ai',
-        text: "Sorry, I encountered an error processing your request. Please try again.",
+        text: errorResponseMessage,
         timestamp: new Date(),
       };
-      setMessages((prevMessages) => [...prevMessages, errorMessage]);
+      setMessages((prevMessages) => [...prevMessages, errorMessageEntry]);
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -216,7 +229,7 @@ export default function VisionaryChatterPage() {
         </CardHeader>
         
         <ScrollArea className="flex-grow" viewportRef={viewportRef}>
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-6">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -225,36 +238,37 @@ export default function VisionaryChatterPage() {
                 }`}
               >
                 {msg.sender === 'ai' && (
-                  <Avatar className="h-7 w-7 border border-primary/20 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs">
+                  <Avatar className="h-7 w-7 border border-primary/20 shrink-0 mt-1">
+                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs flex items-center justify-center">
                       <Bot size={16} />
                     </AvatarFallback>
                   </Avatar>
                 )}
                 <div
-                  className={`max-w-[80%] p-2.5 rounded-lg shadow-sm text-sm ${
-                    msg.sender === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-sm'
-                      : 'bg-card border text-card-foreground rounded-bl-sm'
-                  }`}
+                  className={`max-w-[85%] sm:max-w-[80%] p-2.5 rounded-lg shadow-sm text-sm flex flex-col
+                    ${
+                      msg.sender === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-none ml-auto'
+                        : 'bg-card border text-card-foreground rounded-bl-none'
+                    }`}
                 >
-                  {msg.imagePreviews && msg.imagePreviews.length > 0 && (
-                    <div className={`mb-1.5 flex flex-wrap gap-1.5 ${msg.imagePreviews.length > 1 ? 'grid grid-cols-2' : ''}`}>
-                      {msg.imagePreviews.map((previewUrl, index) => (
-                        <div key={index} className="relative aspect-square w-28 rounded overflow-hidden border border-input/50 group">
-                          <Image src={previewUrl} alt={`Uploaded preview ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="chat image preview"/>
+                  {msg.sender === 'user' && msg.sentPhotoDataUris && msg.sentPhotoDataUris.length > 0 && (
+                    <div className={`mb-1.5 flex flex-wrap gap-1.5 ${msg.sentPhotoDataUris.length > 1 ? 'grid grid-cols-2' : ''}`}>
+                      {msg.sentPhotoDataUris.map((uri, index) => (
+                        <div key={index} className="relative aspect-square w-28 rounded overflow-hidden border border-primary-foreground/20 group">
+                          <Image src={uri} alt={`Sent image ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="chat image sent"/>
                         </div>
                       ))}
                     </div>
                   )}
                   {msg.text && <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
-                  <p className={`text-xs mt-1.5 opacity-60 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                  <p className={`text-xs mt-1.5 opacity-70 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 {msg.sender === 'user' && (
-                  <Avatar className="h-7 w-7 border border-input shrink-0">
-                    <AvatarFallback className="bg-muted rounded-full text-xs">
+                  <Avatar className="h-7 w-7 border border-input shrink-0 mt-1">
+                    <AvatarFallback className="bg-muted rounded-full text-xs flex items-center justify-center">
                       <User size={16} />
                     </AvatarFallback>
                   </Avatar>
@@ -262,13 +276,13 @@ export default function VisionaryChatterPage() {
               </div>
             ))}
             {isLoading && messages[messages.length -1]?.sender === 'user' && (
-              <div className="flex justify-start items-start gap-2.5 mb-4">
-                 <Avatar className="h-7 w-7 border border-primary/20 shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs">
+              <div className="flex justify-start items-start gap-2.5">
+                 <Avatar className="h-7 w-7 border border-primary/20 shrink-0 mt-1">
+                    <AvatarFallback className="bg-primary/10 text-primary rounded-full text-xs flex items-center justify-center">
                       <Bot size={16} />
                     </AvatarFallback>
                   </Avatar>
-                <div className="bg-card border text-card-foreground rounded-lg rounded-bl-sm p-2.5 shadow-sm">
+                <div className="bg-card border text-card-foreground rounded-lg rounded-bl-none p-2.5 shadow-sm">
                   <LoadingSpinner size="0.9rem" message="Thinking..." />
                 </div>
               </div>
@@ -277,11 +291,11 @@ export default function VisionaryChatterPage() {
         </ScrollArea>
 
         <CardFooter className="p-2.5 border-t bg-muted/50">
-          {imagePreviews.length > 0 && (
+          {currentImagePreviews.length > 0 && (
             <div className="mb-2 p-2.5 border rounded-md bg-background w-full">
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Selected ({imagePreviews.length}/{MAX_IMAGES_COUNT}):</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Selected ({currentImagePreviews.length}/{MAX_IMAGES_COUNT}):</p>
               <div className="flex flex-wrap gap-1.5">
-                {imagePreviews.map((preview, index) => (
+                {currentImagePreviews.map((preview, index) => (
                   <div key={index} className="relative w-14 h-14 animate-fade-in-fast">
                     <Image src={preview} alt={`Preview ${index}`} layout="fill" objectFit="cover" className="rounded border" data-ai-hint="image preview"/>
                     <Button
@@ -345,3 +359,5 @@ export default function VisionaryChatterPage() {
     </div>
   );
 }
+
+    
