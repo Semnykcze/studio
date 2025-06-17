@@ -24,7 +24,7 @@ const MediaPartSchema = z.object({
     contentType: z.string().optional().describe("The MIME type of the media, e.g., 'image/png'.")
   }),
 });
-const PartSchema = z.union([TextPartSchema, MediaPartSchema]); // Made non-exported
+const PartSchema = z.union([TextPartSchema, MediaPartSchema]);
 export type PartType = z.infer<typeof PartSchema>;
 
 
@@ -32,7 +32,7 @@ export type PartType = z.infer<typeof PartSchema>;
 const MessageSchema = z.object({
   role: z.enum(['user', 'model', 'system', 'tool']),
   parts: z.array(PartSchema),
-}); // Made non-exported
+});
 export type Message = z.infer<typeof MessageSchema>;
 
 
@@ -71,18 +71,23 @@ const visionaryChatterFlow = ai.defineFlow(
     const currentUserParts: Part[] = [{text: input.message}];
     if (input.photoDataUris && input.photoDataUris.length > 0) {
       input.photoDataUris.forEach(uri => {
-        // Basic extraction of MIME type, defaults if not found
         const match = uri.match(/^data:(image\/[^;]+);base64,/);
         const contentType = match ? match[1] : undefined;
         currentUserParts.push({media: {url: uri, contentType }});
       });
     }
 
+    const preparedHistory: Message[] = [
+      { role: 'system', parts: [{ text: systemPrompt }] },
+    ];
+    if (input.history) {
+      preparedHistory.push(...input.history);
+    }
+
     try {
       const {output} = await ai.generate({
-        model: 'googleai/gemini-1.5-flash-latest', // Ensure this model is vision-capable
-        system: systemPrompt,
-        history: input.history || [],
+        model: 'googleai/gemini-1.5-flash-latest',
+        history: preparedHistory,
         prompt: currentUserParts,
         output: {schema: VisionaryChatterOutputSchema},
         config: {
@@ -100,13 +105,24 @@ const visionaryChatterFlow = ai.defineFlow(
       console.error("Error in visionaryChatterFlow:", error);
       let errorMessage = "An unexpected error occurred while generating a response.";
       if (error instanceof Error) {
-        errorMessage = error.message;
+        // Check if the error message is "system role is not supported"
+        if (error.message.toLowerCase().includes('system role is not supported')) {
+            errorMessage = 'There was an issue with the system configuration. Please try again.';
+        } else {
+            errorMessage = error.message;
+        }
+      } else if (typeof error === 'object' && error && (error as any).message) {
+         errorMessage = (error as any).message;
       }
-      // Consider if the error contains structured information, e.g. from Gemini API directly
-      // if (typeof error === 'object' && error && (error as any).message) {
-      //   errorMessage = (error as any).message;
-      // }
+      
+      // For debugging, log the specific error that Gemini might be returning
+      if (typeof error === 'object' && error !== null && 'details' in error) {
+        console.error("Gemini error details:", (error as any).details);
+      }
+
+
       return { response: `Sorry, I encountered an error: ${errorMessage}. Please try again.` };
     }
   }
 );
+
