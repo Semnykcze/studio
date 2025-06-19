@@ -20,7 +20,7 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
-//import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
+import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 import { generateImageFromPrompt, type GenerateImageFromPromptInput } from '@/ai/flows/generate-image-from-prompt-flow';
 
@@ -65,6 +65,8 @@ const INITIAL_CREDITS = 10;
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 const IMAGE_GENERATION_COST = 10;
+const DEPTH_MAP_COST = 1;
+const STYLE_ANALYSIS_COST = 1;
 
 function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -597,28 +599,41 @@ export default function VisionaryPrompterPage() {
 
   const handleGenerateDepthMap = async () => {
     if (!uploadedImage) {
-      toast({ variant: "destructive", title: "No image for depth map" }); return;
+      toast({ variant: "destructive", title: "No image for depth map generation." }); return;
     }
     if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error" }); return;
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." }); return;
     }
-    if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits for depth map" }); return;
+    if (credits === null || credits < DEPTH_MAP_COST) {
+      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${DEPTH_MAP_COST} credit for depth map generation.` }); return;
     }
 
     setIsDepthMapLoading(true);
     setGeneratedDepthMap(null);
     try {
-      toast({ title: "Depth map generation is currently disabled.", description: "This feature will be re-enabled soon." });
+      const input: GenerateDepthMapInput = { 
+        photoDataUri: uploadedImage,
+        allowNsfw: allowNsfw // Pass NSFW setting
+      };
+      const result = await generateDepthMap(input);
+      setGeneratedDepthMap(result.depthMapDataUri);
+
+      const newCredits = credits - DEPTH_MAP_COST;
+      setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      toast({ title: "Depth map generated successfully!" });
+
     } catch (error) {
-      let desc = "Unknown error.";
+      let desc = "Unknown error during depth map generation.";
       if (error instanceof Error) desc = error.message;
       else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message:string}).message);
-      toast({ variant: "destructive", title: "Depth map failed", description: desc });
+      toast({ variant: "destructive", title: "Depth map generation failed", description: desc });
     } finally {
       setIsDepthMapLoading(false);
     }
   };
+
   const handleAnalyzeImageStyle = async () => {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for style analysis" }); return;
@@ -626,8 +641,8 @@ export default function VisionaryPrompterPage() {
     if (sessionId === null) {
       toast({ variant: "destructive", title: "Session Error" }); return;
     }
-    if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits for style analysis" }); return;
+    if (credits === null || credits < STYLE_ANALYSIS_COST) {
+      toast({ variant: "destructive", title: "No credits for style analysis", description: `You need ${STYLE_ANALYSIS_COST} credit.` }); return;
     }
 
     setIsStyleAnalysisLoading(true);
@@ -635,7 +650,7 @@ export default function VisionaryPrompterPage() {
     try {
       const result = await analyzeImageStyle({ photoDataUri: uploadedImage });
       setImageStyleAnalysis(result);
-      const newCredits = credits - 1;
+      const newCredits = credits - STYLE_ANALYSIS_COST;
       setCredits(newCredits);
       dispatchCreditsUpdate(newCredits);
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
@@ -1104,10 +1119,10 @@ export default function VisionaryPrompterPage() {
               <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                 <Palette className="mr-2 h-5 w-5" /> Image Style Analysis
               </CardTitle>
-              <CardDescription className="text-sm">Identify artistic style, colors, mood. (1 Credit)</CardDescription>
+              <CardDescription className="text-sm">Identify artistic style, colors, mood. ({STYLE_ANALYSIS_COST} Credit)</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits <=0 ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
+              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits < STYLE_ANALYSIS_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < STYLE_ANALYSIS_COST ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
                 {isStyleAnalysisLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Paintbrush className="mr-1.5 h-4 w-4" />} Analyze Style
               </Button>
               {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
@@ -1148,7 +1163,7 @@ export default function VisionaryPrompterPage() {
                   </div>
                 </div>
               )}
-              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
+              {credits !== null && credits < STYLE_ANALYSIS_COST && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
             </CardContent>
           </Card>
 
@@ -1157,15 +1172,10 @@ export default function VisionaryPrompterPage() {
               <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                 <Layers className="mr-2 h-5 w-5" /> Depth Map (Experimental)
               </CardTitle>
-              <CardDescription className="text-sm">Generate a depth map. (1 Credit)</CardDescription>
+              <CardDescription className="text-sm">Generate a depth map. ({DEPTH_MAP_COST} Credit)</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Alert variant="default" className="mb-4 bg-accent/10 border-accent/30 text-accent-foreground/90">
-                <Info className="h-4 w-4 text-accent-foreground/80" />
-                <AlertTitle className="font-semibold text-sm">Experimental Feature (Currently Disabled)</AlertTitle>
-                <AlertDescription className="text-xs">Depth map generation is temporarily disabled.</AlertDescription>
-              </Alert>
-              <Button onClick={handleGenerateDepthMap} disabled={true || anyLoading || !uploadedImage || credits === null || credits <= 0} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits <=0 ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
+              <Button onClick={handleGenerateDepthMap} disabled={anyLoading || !uploadedImage || credits === null || credits < DEPTH_MAP_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < DEPTH_MAP_COST ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
                 {isDepthMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Layers className="mr-1.5 h-4 w-4" />} Generate Depth Map
               </Button>
               {!uploadedImage && !isDepthMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
@@ -1179,7 +1189,7 @@ export default function VisionaryPrompterPage() {
                   <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map"/>
                 </div>
               )}
-              {credits !== null && credits <= 0 && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
+              {credits !== null && credits < DEPTH_MAP_COST && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
             </CardContent>
           </Card>
         </div>
