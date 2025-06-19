@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
 import { generateRelatedTags, type GenerateRelatedTagsInput } from '@/ai/flows/generate-related-tags-flow';
+import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { DraftingCompass, Wand2, Copy, Check, Sparkles, PlusCircle, Info } from 'lucide-react';
+import { DraftingCompass, Wand2, Copy, Check, Sparkles, PlusCircle, Info, X, Edit } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,9 +20,10 @@ const LOCAL_STORAGE_BUILDER_PROMPT_KEY = 'visionaryBuilderPrompt';
 const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId'; // Reuse for credits
 const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_'; // Reuse for credits
 const RELATED_TAGS_GENERATION_COST = 1;
+const PROMPT_TRANSFORMATION_COST = 1;
 
 interface DisplayTag {
-  id: string;
+  id: string; // Unique ID for React key, e.g., `tag-${index}`
   text: string;
   suggestions?: string[];
   isLoadingSuggestions?: boolean;
@@ -34,6 +36,8 @@ export default function VisionaryBuilderPage() {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [credits, setCredits] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [transformationInstruction, setTransformationInstruction] = useState<string>('');
+  const [isTransforming, setIsTransforming] = useState<boolean>(false);
 
   const { toast } = useToast();
 
@@ -46,7 +50,6 @@ export default function VisionaryBuilderPage() {
     if (currentSessionId) {
       setSessionId(currentSessionId);
     } else {
-      // Fallback or generate if necessary, though it should exist from other pages
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2);
       localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
       setSessionId(newId);
@@ -60,8 +63,7 @@ export default function VisionaryBuilderPage() {
     if (storedCredits !== null) {
       setCredits(parseInt(storedCredits, 10));
     } else {
-      // Initialize if not found, though ideally set by Prompter page first
-      localStorage.setItem(creditsStorageKey, '10'); // Default to 10 if no other page set it
+      localStorage.setItem(creditsStorageKey, '10'); 
       setCredits(10);
       dispatchCreditsUpdate(10);
     }
@@ -74,13 +76,7 @@ export default function VisionaryBuilderPage() {
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_BUILDER_PROMPT_KEY, mainPrompt);
-    parsePromptToTags(mainPrompt);
-  }, [mainPrompt]);
-
-
-  const parsePromptToTags = (prompt: string) => {
+  const parsePromptToTags = useCallback((prompt: string) => {
     if (!prompt.trim()) {
       setDisplayTags([]);
       return;
@@ -90,16 +86,31 @@ export default function VisionaryBuilderPage() {
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0)
       .map((tagText, index) => {
-        const existingTag = displayTags.find(dt => dt.text === tagText && dt.id.startsWith(`tag-${index}`));
+        // Try to find existing tag by text if already parsed, to preserve suggestion state
+        const existingTag = displayTags.find(dt => dt.text === tagText);
         return {
-          id: existingTag?.id || `tag-${index}-${Date.now()}`,
+          id: `tag-${index}`, // Simpler ID based on current index
           text: tagText,
-          suggestions: existingTag?.suggestions || [],
-          isLoadingSuggestions: existingTag?.isLoadingSuggestions || false,
-          popoverOpen: existingTag?.popoverOpen || false,
+          suggestions: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.suggestions : [], // Preserve suggestions if index and text match previous
+          isLoadingSuggestions: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.isLoadingSuggestions : false,
+          popoverOpen: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.popoverOpen : false,
         };
       });
     setDisplayTags(parsed);
+  }, [displayTags]); // displayTags in dependency to help preserve state somewhat, though index-based ID is primary
+
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_BUILDER_PROMPT_KEY, mainPrompt);
+    parsePromptToTags(mainPrompt);
+  }, [mainPrompt, parsePromptToTags]);
+
+
+  const handleRemoveTag = (tagIdToRemove: string) => {
+    const newDisplayTags = displayTags.filter(tag => tag.id !== tagIdToRemove);
+    const newMainPrompt = newDisplayTags.map(tag => tag.text).join(', ');
+    setMainPrompt(newMainPrompt);
+    // displayTags will be updated by the useEffect watching mainPrompt
   };
   
   const handleGenerateSuggestions = async (tagId: string) => {
@@ -114,7 +125,7 @@ export default function VisionaryBuilderPage() {
     }
     
     setDisplayTags(prevTags =>
-      prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: true, suggestions: [] } : t))
+      prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: true, suggestions: [], popoverOpen: true } : t)) // Open popover on load
     );
 
     try {
@@ -125,7 +136,7 @@ export default function VisionaryBuilderPage() {
       const result = await generateRelatedTags(input);
       
       setDisplayTags(prevTags =>
-        prevTags.map(t => (t.id === tagId ? { ...t, suggestions: result.suggestedKeywords, isLoadingSuggestions: false, popoverOpen: true } : t))
+        prevTags.map(t => (t.id === tagId ? { ...t, suggestions: result.suggestedKeywords, isLoadingSuggestions: false } : t))
       );
 
       if (sessionId && credits !== null) {
@@ -134,11 +145,12 @@ export default function VisionaryBuilderPage() {
         dispatchCreditsUpdate(newCredits);
         localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       }
-      toast({ title: `Suggestions for "${targetTag.text}" generated!` });
+      // Toast for success is optional, popover opening might be enough feedback
+      // toast({ title: `Suggestions for "${targetTag.text}" generated!` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error generating suggestions", description: error instanceof Error ? error.message : String(error) });
       setDisplayTags(prevTags =>
-        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false } : t))
+        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false, popoverOpen: false } : t)) // Close popover on error
       );
     }
   };
@@ -170,19 +182,59 @@ export default function VisionaryBuilderPage() {
       prevTags.map(t => {
         if (t.id === tagId) {
           const newOpenState = typeof open === 'boolean' ? open : !t.popoverOpen;
-          // If opening and no suggestions yet, and not loading, then fetch.
           if (newOpenState && !t.suggestions?.length && !t.isLoadingSuggestions) {
-            handleGenerateSuggestions(tagId); // Auto-fetch if opening and empty
+            handleGenerateSuggestions(tagId); 
             return { ...t, popoverOpen: newOpenState, isLoadingSuggestions: true };
           }
           return { ...t, popoverOpen: newOpenState };
         }
-        return t; // Close other popovers if needed: { ...t, popoverOpen: false };
+        // Close other popovers if only one should be open at a time
+        // return { ...t, popoverOpen: false }; 
+        return t;
       })
     );
   };
+
+  const handleTransformPrompt = async () => {
+    if (!mainPrompt.trim()) {
+      toast({ variant: "destructive", title: "No prompt to transform", description: "Please enter a prompt in the main area first." });
+      return;
+    }
+    if (!transformationInstruction.trim()) {
+      toast({ variant: "destructive", title: "No transformation instruction", description: "Please describe how you want to change the prompt." });
+      return;
+    }
+    if (credits === null || credits < PROMPT_TRANSFORMATION_COST) {
+      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${PROMPT_TRANSFORMATION_COST} credit(s) for transformation.` });
+      return;
+    }
+
+    setIsTransforming(true);
+    try {
+      const input: TransformPromptInput = {
+        originalPrompt: mainPrompt,
+        transformationInstruction: transformationInstruction,
+        // Assuming default language English, or could add a language selector later
+      };
+      const result = await transformPrompt(input);
+      setMainPrompt(result.transformedPrompt); // This will trigger re-parsing of tags
+      setTransformationInstruction(''); // Clear instruction field
+      
+      if (sessionId && credits !== null) {
+        const newCredits = credits - PROMPT_TRANSFORMATION_COST;
+        setCredits(newCredits);
+        dispatchCreditsUpdate(newCredits);
+        localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      }
+      toast({ title: "Prompt transformed successfully!" });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Prompt transformation failed", description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsTransforming(false);
+    }
+  };
   
-  const anyLoading = displayTags.some(tag => tag.isLoadingSuggestions);
+  const anyLoading = displayTags.some(tag => tag.isLoadingSuggestions) || isTransforming;
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8 print:p-0">
@@ -194,7 +246,7 @@ export default function VisionaryBuilderPage() {
           </h1>
         </div>
         <p className="text-base sm:text-md md:text-lg text-muted-foreground max-w-xl mx-auto">
-          Craft detailed prompts tag by tag with AI-powered keyword suggestions.
+          Craft detailed prompts tag by tag with AI-powered keyword suggestions and transformations.
         </p>
       </header>
 
@@ -206,7 +258,7 @@ export default function VisionaryBuilderPage() {
                 <Wand2 className="mr-2 h-5 w-5" /> Main Prompt
               </CardTitle>
               <CardDescription className="text-sm">
-                Type your base prompt here. Use commas to separate distinct ideas or tags.
+                Type your base prompt. Use commas (,) to separate distinct ideas or tags.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6">
@@ -234,39 +286,61 @@ export default function VisionaryBuilderPage() {
                   <Sparkles className="mr-2 h-5 w-5" /> Enhance Tags
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Click the <Wand2 size={14} className="inline align-text-bottom"/> icon on a tag to get AI suggestions. Costs {RELATED_TAGS_GENERATION_COST} credit per tag.
+                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Click <X size={14} className="inline align-text-bottom"/> to remove.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {displayTags.map((tag) => (
                     <Popover key={tag.id} open={tag.popoverOpen} onOpenChange={(open) => togglePopover(tag.id, open)}>
-                      <PopoverTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className="text-sm py-1 px-2.5 cursor-pointer hover:bg-accent/50 transition-colors group relative"
-                        >
-                          {tag.text}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="ml-1 h-5 w-5 p-0 opacity-70 group-hover:opacity-100 text-primary hover:bg-primary/10"
-                            onClick={(e) => { 
-                              e.stopPropagation(); // Prevent PopoverTrigger from firing again
-                              if (tag.popoverOpen && tag.suggestions?.length) { // If already open with suggestions, just toggle
-                                  togglePopover(tag.id, false);
-                              } else { // Otherwise, fetch/refetch
-                                  handleGenerateSuggestions(tag.id);
-                              }
+                      <div className="relative group/tag">
+                        <PopoverTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1"
+                            onClick={() => { // If popover is already open with suggestions, clicking badge itself does nothing new.
+                                if (!(tag.popoverOpen && tag.suggestions?.length)) {
+                                    handleGenerateSuggestions(tag.id);
+                                } else if (tag.popoverOpen) {
+                                   togglePopover(tag.id, false); // Allow badge click to close if already open
+                                } else {
+                                   togglePopover(tag.id, true); // Allow badge click to open if closed
+                                }
                             }}
-                            disabled={tag.isLoadingSuggestions || (credits !== null && credits < RELATED_TAGS_GENERATION_COST)}
-                            aria-label={`Get suggestions for ${tag.text}`}
-                            title={`Get AI suggestions (${RELATED_TAGS_GENERATION_COST} credit)`}
                           >
-                            {tag.isLoadingSuggestions ? <LoadingSpinner size="0.7rem" /> : <Wand2 size={12} />}
-                          </Button>
-                        </Badge>
-                      </PopoverTrigger>
+                            {tag.text}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="ml-0.5 h-5 w-5 p-0 opacity-60 group-hover/tag:opacity-100 text-primary hover:bg-primary/10"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (tag.popoverOpen && tag.suggestions?.length) { 
+                                    togglePopover(tag.id, false);
+                                } else { 
+                                    handleGenerateSuggestions(tag.id);
+                                }
+                              }}
+                              disabled={tag.isLoadingSuggestions || (credits !== null && credits < RELATED_TAGS_GENERATION_COST)}
+                              aria-label={`Get suggestions for ${tag.text}`}
+                              title={`Get AI suggestions (${RELATED_TAGS_GENERATION_COST} credit)`}
+                            >
+                              {tag.isLoadingSuggestions ? <LoadingSpinner size="0.6rem" /> : <Wand2 size={11} />}
+                            </Button>
+                          </Badge>
+                        </PopoverTrigger>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 rounded-full bg-muted/70 hover:bg-destructive/80 hover:text-destructive-foreground text-muted-foreground opacity-50 group-hover/tag:opacity-100 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag.id); }}
+                            aria-label={`Remove tag ${tag.text}`}
+                            title="Remove tag"
+                            disabled={anyLoading}
+                        >
+                            <X size={10} />
+                        </Button>
+                      </div>
                       <PopoverContent className="w-64 p-0" side="bottom" align="start">
                         <ScrollArea className="max-h-60">
                            <div className="p-2 space-y-1">
@@ -304,6 +378,42 @@ export default function VisionaryBuilderPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card className="shadow-md">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                <Edit className="mr-2 h-5 w-5" /> Transform Full Prompt
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Describe how you want to change the entire prompt above. Costs {PROMPT_TRANSFORMATION_COST} credit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 space-y-3">
+              <Textarea
+                id="transformation-instruction"
+                placeholder="e.g., 'make it nighttime and add a spooky atmosphere', 'rewrite this to be more abstract', 'focus on the character's expression'..."
+                value={transformationInstruction}
+                onChange={(e) => setTransformationInstruction(e.target.value)}
+                className="min-h-[80px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
+                disabled={anyLoading || !mainPrompt.trim()}
+              />
+              <Button 
+                onClick={handleTransformPrompt} 
+                disabled={anyLoading || !mainPrompt.trim() || !transformationInstruction.trim() || (credits !== null && credits < PROMPT_TRANSFORMATION_COST)} 
+                className="w-full text-sm py-2"
+              >
+                {isTransforming ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                Transform Prompt
+              </Button>
+              {(!mainPrompt.trim() && !anyLoading) && (
+                <p className="text-xs text-muted-foreground text-center">Enter a main prompt first to enable transformation.</p>
+              )}
+              {(credits !== null && credits < PROMPT_TRANSFORMATION_COST && mainPrompt.trim() && transformationInstruction.trim() && !anyLoading) && (
+                <p className="text-xs text-destructive text-center">Not enough credits for prompt transformation.</p>
+              )}
+            </CardContent>
+          </Card>
+
         </div>
 
         <div className="md:col-span-1 space-y-6">
@@ -314,18 +424,19 @@ export default function VisionaryBuilderPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 md:p-6 text-sm space-y-2 text-muted-foreground">
-                <p>1. Start by typing your core ideas into the "Main Prompt" area. Use commas (,) to separate distinct concepts, which will be treated as individual "tags".</p>
-                <p>2. The parsed tags will appear below. Click the <Wand2 size={14} className="inline align-text-bottom"/> icon next to any tag to generate AI-powered keyword suggestions for it (costs {RELATED_TAGS_GENERATION_COST} credit).</p>
-                <p>3. In the popover, click on <PlusCircle size={14} className="inline align-text-bottom text-green-500"/> next to a suggestion to add it to your main prompt.</p>
-                <p>4. Continue refining your prompt by adding more tags or getting more suggestions.</p>
-                <p>5. Once you're happy, use the "Copy Full Prompt" button to use it in your favorite image generator!</p>
+                <p>1. Start by typing your core ideas into the "Main Prompt" area. Use commas (,) to separate distinct concepts (tags).</p>
+                <p>2. Tags will appear below. Click <X size={14} className="inline align-text-bottom text-destructive"/> to remove a tag.</p>
+                <p>3. Click the <Wand2 size={14} className="inline align-text-bottom"/> icon on a tag to get AI keyword suggestions ({RELATED_TAGS_GENERATION_COST} credit).</p>
+                <p>4. Click <PlusCircle size={14} className="inline align-text-bottom text-green-500"/> next to a suggestion to add it to your main prompt.</p>
+                <p>5. Use the "Transform Full Prompt" section to describe changes to the entire prompt ({PROMPT_TRANSFORMATION_COST} credit).</p>
+                <p>6. Once happy, use "Copy Full Prompt" to use it in your image generator.</p>
             </CardContent>
           </Card>
           <Alert>
             <DraftingCompass className="h-4 w-4" />
             <AlertTitle>Tip!</AlertTitle>
             <AlertDescription className="text-xs">
-              For best results with AI suggestions, make your initial tags relatively focused. Broad tags might yield very generic suggestions.
+              For best results with AI suggestions, make your initial tags relatively focused. Broad tags might yield very generic suggestions. When transforming, be clear with your instructions.
             </AlertDescription>
           </Alert>
         </div>
@@ -337,3 +448,4 @@ export default function VisionaryBuilderPage() {
     </div>
   );
 }
+
