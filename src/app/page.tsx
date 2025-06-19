@@ -29,7 +29,7 @@ import {
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -105,6 +105,7 @@ export default function VisionaryPrompterPage() {
   const [generatedImageDataUri, setGeneratedImageDataUri] = useState<string | null>(null);
   const [isImageGenerating, setIsImageGenerating] = useState<boolean>(false);
   const [imageSeed, setImageSeed] = useState<string>('');
+  const [editImagePrompt, setEditImagePrompt] = useState<string>('');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -302,6 +303,7 @@ export default function VisionaryPrompterPage() {
     setIsLoading(true);
     setGeneratedPrompt('');
     setGeneratedImageDataUri(null); 
+    setEditImagePrompt('');
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
@@ -400,37 +402,27 @@ export default function VisionaryPrompterPage() {
     }
   };
 
-  const handleTryGenerateImage = async () => {
-    if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt available", description: "Please generate a prompt first." });
-      return;
-    }
+  const processImageGeneration = async (prompt: string, baseImageUri?: string) => {
     if (sessionId === null) {
       toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
       return;
     }
     if (credits === null || credits < IMAGE_GENERATION_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${IMAGE_GENERATION_COST} credits to generate an image.` });
+      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${IMAGE_GENERATION_COST} credits.` });
       return;
     }
 
     setIsImageGenerating(true);
-    setGeneratedImageDataUri(null); // Clear previous image
-    
-    let currentSeed = imageSeed;
-    if (imageSeed.trim() === '') {
-      currentSeed = Date.now().toString();
-      setImageSeed(currentSeed); // Set the seed in state if it was empty
+    // For edits, we don't want to clear the base image, but for new generations, yes.
+    // If baseImageUri is undefined, it's a new/regenerate, so clear old edit prompt.
+    if (!baseImageUri) {
+        setEditImagePrompt('');
     }
 
     try {
-      let finalPromptForImageGeneration = generatedPrompt;
-      // Append seed conceptually to prompt
-      finalPromptForImageGeneration = `${generatedPrompt.trim()} (Artistic influence from seed: ${currentSeed.trim()})`;
-      
-
       const input: GenerateImageFromPromptInput = {
-        prompt: finalPromptForImageGeneration,
+        prompt: prompt,
+        baseImageDataUri: baseImageUri,
         allowNsfw: allowNsfw,
       };
       const result = await generateImageFromPrompt(input);
@@ -440,16 +432,64 @@ export default function VisionaryPrompterPage() {
       setCredits(newCredits);
       dispatchCreditsUpdate(newCredits);
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
-      toast({ title: "Image generated successfully!" });
+      toast({ title: baseImageUri ? "Image edited successfully!" : "Image generated successfully!" });
+
+      // If it's a new generation (not an edit and not a regeneration from an existing seed) set a seed
+      if (!baseImageUri && imageSeed.trim() === '') {
+        setImageSeed(Date.now().toString());
+      }
+
     } catch (error) {
       let desc = "Unknown error.";
       if (error instanceof Error) desc = error.message;
       else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message: string}).message);
-      toast({ variant: "destructive", title: "Image Generation Failed", description: desc });
+      toast({ variant: "destructive", title: baseImageUri ? "Image Editing Failed" : "Image Generation Failed", description: desc });
     } finally {
       setIsImageGenerating(false);
     }
   };
+
+  const handleTryGenerateImage = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt available", description: "Please generate a prompt first." });
+      return;
+    }
+    let currentSeed = imageSeed;
+    if (imageSeed.trim() === '') {
+      currentSeed = Date.now().toString();
+      // Don't set imageSeed state here yet, only if generation is successful
+    }
+    const finalPromptForImageGeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
+    await processImageGeneration(finalPromptForImageGeneration);
+  };
+
+  const handleRegenerateImage = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt available", description: "Cannot regenerate without a base prompt." });
+      return;
+    }
+    // If no seed exists, generate one for this regeneration
+    let currentSeed = imageSeed;
+    if (imageSeed.trim() === '') {
+        currentSeed = Date.now().toString();
+        setImageSeed(currentSeed); // Set it as this is an explicit regeneration
+    }
+    const finalPromptForRegeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
+    await processImageGeneration(finalPromptForRegeneration);
+  };
+
+  const handleEditImage = async () => {
+    if (!generatedImageDataUri) {
+      toast({ variant: "destructive", title: "No image to edit", description: "Generate an image first." });
+      return;
+    }
+    if (!editImagePrompt.trim()) {
+      toast({ variant: "destructive", title: "No edit instructions", description: "Please provide a prompt for editing." });
+      return;
+    }
+    await processImageGeneration(editImagePrompt.trim(), generatedImageDataUri);
+  };
+
 
   const handleSaveImage = () => {
     if (!generatedImageDataUri) {
@@ -557,7 +597,8 @@ export default function VisionaryPrompterPage() {
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
     setGeneratedImageDataUri(null); 
-    setImageSeed(''); // Reset seed when loading from history
+    setImageSeed(''); 
+    setEditImagePrompt('');
 
     toast({
       title: "Loaded from history",
@@ -853,64 +894,89 @@ export default function VisionaryPrompterPage() {
                             onChange={(e) => setImageSeed(e.target.value)}
                             placeholder="Auto"
                             className="h-7 w-20 md:w-24 text-xs px-2"
-                            disabled={anyLoading && isImageGenerating}
+                            disabled={isImageGenerating}
                             aria-label="Image generation seed"
                         />
                     </div>
                 </CardHeader>
-                <CardContent className="p-4 md:p-6">
-                    {isImageGenerating && !generatedImageDataUri ? ( // Show spinner only if no image is yet loaded
+                <CardContent className="p-4 md:p-6 relative">
+                    {isImageGenerating && !generatedImageDataUri && ( 
                         <div className="flex items-center justify-center min-h-[256px] aspect-square w-full max-w-md mx-auto bg-muted/50 rounded-md">
                             <LoadingSpinner size="2rem" message="Conjuring pixels..." />
                         </div>
-                    ) : generatedImageDataUri ? (
-                        <>
-                          <div className="aspect-square w-full max-w-md mx-auto relative rounded-md overflow-hidden border animate-fade-in-fast">
-                              <Image src={generatedImageDataUri} alt="AI Generated Image" layout="fill" objectFit="contain" data-ai-hint="generated art"/>
-                          </div>
-                          <div className="mt-4 flex items-center justify-end space-x-1 border border-input rounded-md p-1 bg-muted/50 max-w-md mx-auto">
-                              <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={handleTryGenerateImage} // This is effectively "Regenerate"
-                                  title={`Regenerate Image (${IMAGE_GENERATION_COST} Credits)`} 
-                                  disabled={anyLoading || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
-                                  className="h-7 px-1.5 text-xs" 
-                                  aria-label="Regenerate Image"
-                              >
-                                  {isImageGenerating ? <LoadingSpinner size="0.8rem" /> : <RefreshCw className="h-3.5 w-3.5" />} 
-                                  <span className="ml-1 hidden sm:inline">Regenerate ({IMAGE_GENERATION_COST} Cr)</span>
-                              </Button>
-                              <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={handleSaveImage} 
-                                  title="Save Image" 
-                                  disabled={anyLoading || !generatedImageDataUri} 
-                                  className="h-7 px-1.5 text-xs" 
-                                  aria-label="Save Image"
-                              >
-                                  <DownloadCloud className="h-3.5 w-3.5" />
-                                  <span className="ml-1 hidden sm:inline">Save</span>
-                              </Button>
-                               {/* Placeholder for future Upscale/Variations - Will inform user they are not available */}
-                              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Upscale (Coming Soon)">
-                                <Layers className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Upscale</span>
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Variations (Coming Soon)">
-                                <Wand2 className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Variations</span>
-                              </Button>
-                          </div>
-                          {(credits !== null && credits < IMAGE_GENERATION_COST && generatedImageDataUri && !isImageGenerating) && (
-                            <p className="text-xs text-center text-destructive mt-2 max-w-md mx-auto">Not enough credits to regenerate.</p>
-                          )}
-                        </>
-                    ) : null}
-                     {isImageGenerating && generatedImageDataUri && ( // Shows spinner on top of old image during regeneration
-                        <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm rounded-md">
-                            <LoadingSpinner size="2rem" message="Regenerating..." />
+                    )}
+                    {generatedImageDataUri && (
+                      <>
+                        <div className="aspect-square w-full max-w-md mx-auto relative rounded-md overflow-hidden border animate-fade-in-fast">
+                            <Image src={generatedImageDataUri} alt="AI Generated Image" layout="fill" objectFit="contain" data-ai-hint="generated art"/>
+                             {isImageGenerating && ( 
+                                <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm rounded-md">
+                                    <LoadingSpinner size="2rem" message="Updating image..." />
+                                </div>
+                             )}
                         </div>
-                     )}
+                        <div className="mt-4 flex items-center justify-end space-x-1 border border-input rounded-md p-1 bg-muted/50 max-w-md mx-auto">
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={handleRegenerateImage}
+                                title={`Regenerate Image (${IMAGE_GENERATION_COST} Credits)`} 
+                                disabled={isImageGenerating || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
+                                className="h-7 px-1.5 text-xs" 
+                                aria-label="Regenerate Image"
+                            >
+                                {isImageGenerating && !editImagePrompt ? <LoadingSpinner size="0.8rem" /> : <RefreshCw className="h-3.5 w-3.5" />} 
+                                <span className="ml-1 hidden sm:inline">Regenerate ({IMAGE_GENERATION_COST} Cr)</span>
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={handleSaveImage} 
+                                title="Save Image" 
+                                disabled={isImageGenerating || !generatedImageDataUri} 
+                                className="h-7 px-1.5 text-xs" 
+                                aria-label="Save Image"
+                            >
+                                <DownloadCloud className="h-3.5 w-3.5" />
+                                <span className="ml-1 hidden sm:inline">Save</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Upscale (Coming Soon)">
+                              <Layers className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Upscale</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Variations (Coming Soon)">
+                              <Wand2 className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Variations</span>
+                            </Button>
+                        </div>
+                        {(credits !== null && credits < IMAGE_GENERATION_COST && generatedImageDataUri && !isImageGenerating) && (
+                          <p className="text-xs text-center text-destructive mt-2 max-w-md mx-auto">Not enough credits to regenerate or edit.</p>
+                        )}
+
+                        {/* Edit Image Prompt Section */}
+                        <div className="mt-4 max-w-md mx-auto space-y-2">
+                           <Label htmlFor="edit-image-prompt" className="text-xs font-medium flex items-center">
+                             <PencilLine className="mr-1.5 h-3.5 w-3.5 text-primary" /> Edit Image Prompt:
+                           </Label>
+                           <Textarea
+                             id="edit-image-prompt"
+                             value={editImagePrompt}
+                             onChange={(e) => setEditImagePrompt(e.target.value)}
+                             placeholder="Describe changes, e.g., 'make the sky purple', 'add a cat on the roof'..."
+                             className="min-h-[70px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
+                             disabled={isImageGenerating}
+                           />
+                           <Button
+                             onClick={handleEditImage}
+                             disabled={isImageGenerating || !editImagePrompt.trim() || !generatedImageDataUri || (credits !== null && credits < IMAGE_GENERATION_COST)}
+                             className="w-full text-sm py-2 rounded-md"
+                             size="sm"
+                             variant="outline"
+                           >
+                             {isImageGenerating && editImagePrompt ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Brush className="mr-1.5 h-4 w-4" />}
+                             Edit Image ({IMAGE_GENERATION_COST} Credits)
+                           </Button>
+                        </div>
+                      </>
+                    )}
                 </CardContent>
             </Card>
           )}
@@ -1091,5 +1157,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
-    
