@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates a depth map image from an input image.
@@ -53,15 +54,16 @@ const generateDepthMapFlow = ai.defineFlow(
       ];
     }
     
-    const promptText = `Analyze the input image and generate a grayscale depth map. 
-In the output image, lighter areas should represent parts of the scene closer to the viewer, and darker areas should represent parts further away. 
-The output must be a visual representation of depth, suitable for 3D effects or analysis. Avoid adding any text or annotations to the depth map image itself.`;
+    const promptText = `Based on the input image, generate a high-quality grayscale depth map that estimates the 3D scene structure. 
+The output image should visually represent the relative distances of surfaces from the camera: lighter pixels indicate surfaces closer to the camera, and darker pixels indicate surfaces further away. 
+Strive for a result that is a plausible interpretation of depth, similar in convention to outputs from specialized depth estimation models (e.g., Midas, Depth Anything). 
+The output must be purely the visual depth map image (single channel grayscale ideally, or a grayscale representation if multi-channel), without any additional text, labels, watermarks, or annotations. Focus on capturing geometric details and relative depth variations.`;
 
     try {
       const {media, text} = await ai.generate({
         model: 'googleai/gemini-2.0-flash-exp', 
         prompt: [
-          { media: { url: input.photoDataUri} }, // Removed contentType here as gemini-2.0-flash-exp infers it
+          { media: { url: input.photoDataUri} },
           { text: promptText }
         ],
         config: {
