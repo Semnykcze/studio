@@ -28,11 +28,15 @@ import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
-  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
 type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
+type ImageTypeType = 'image' | 'photography' | 'icon' | 'logo';
+type AspectRatioType = '1:1' | 'portrait' | 'landscape';
+
 
 interface HistoryEntry {
   id: string;
@@ -46,6 +50,8 @@ interface HistoryEntry {
     outputLanguage: string;
     photoFileName?: string;
     allowNsfw: boolean;
+    imageType: ImageTypeType;
+    aspectRatio: AspectRatioType;
   };
   generatedPrompt: string;
 }
@@ -69,6 +75,8 @@ export default function VisionaryPrompterPage() {
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
+  const [selectedImageType, setSelectedImageType] = useState<ImageTypeType>('image');
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatioType>('1:1');
   const [minWords, setMinWords] = useState<number>(25);
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
@@ -158,6 +166,8 @@ export default function VisionaryPrompterPage() {
           params: {
             targetModel: entry.params?.targetModel || 'Flux.1 Dev',
             promptStyle: entry.params?.promptStyle || 'detailed',
+            imageType: entry.params?.imageType || 'image',
+            aspectRatio: entry.params?.aspectRatio || '1:1',
             minWords: entry.params?.minWords || 25,
             maxWords: entry.params?.maxWords || 150,
             outputLanguage: entry.params?.outputLanguage || 'English',
@@ -229,6 +239,20 @@ export default function VisionaryPrompterPage() {
       { value: 'Imagen3', label: 'Imagen 3', icon: Lightbulb },
       { value: 'General Text', label: 'General Text', icon: FileText },
   ];
+  
+  const imageTypeOptions: { value: ImageTypeType; label: string; icon: React.ElementType }[] = [
+    { value: 'image', label: 'General Image', icon: ImageIcon },
+    { value: 'photography', label: 'Photography', icon: Camera },
+    { value: 'icon', label: 'Icon / Graphic', icon: AppWindow },
+    { value: 'logo', label: 'Logo / Symbol', icon: PencilRuler },
+  ];
+
+  const aspectRatioOptions: { value: AspectRatioType; label: string; icon: React.ElementType }[] = [
+    { value: '1:1', label: 'Square (1:1)', icon: Square },
+    { value: 'portrait', label: 'Portrait (e.g., 2:3, 9:16)', icon: RectangleVertical },
+    { value: 'landscape', label: 'Landscape (e.g., 3:2, 16:9)', icon: RectangleHorizontal },
+  ];
+
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -275,11 +299,13 @@ export default function VisionaryPrompterPage() {
 
     setIsLoading(true);
     setGeneratedPrompt('');
-    setGeneratedImageDataUri(null); // Reset image when generating new prompt
+    setGeneratedImageDataUri(null); 
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
         targetModel: selectedTargetModel,
+        imageType: selectedImageType,
+        aspectRatio: selectedAspectRatio,
         minWords: minWords,
         maxWords: maxWords,
         promptStyle: selectedPromptStyle,
@@ -302,6 +328,8 @@ export default function VisionaryPrompterPage() {
         params: {
           targetModel: selectedTargetModel,
           promptStyle: selectedPromptStyle,
+          imageType: selectedImageType,
+          aspectRatio: selectedAspectRatio,
           minWords: minWords,
           maxWords: maxWords,
           outputLanguage: selectedLanguage,
@@ -389,7 +417,7 @@ export default function VisionaryPrompterPage() {
     try {
       const input: GenerateImageFromPromptInput = {
         prompt: generatedPrompt,
-        allowNsfw: allowNsfw, // Pass the NSFW preference
+        allowNsfw: allowNsfw,
       };
       const result = await generateImageFromPrompt(input);
       setGeneratedImageDataUri(result.imageDataUri);
@@ -490,6 +518,8 @@ export default function VisionaryPrompterPage() {
     setImageFile(null); 
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
+    setSelectedImageType(entry.params.imageType);
+    setSelectedAspectRatio(entry.params.aspectRatio);
     setMinWords(entry.params.minWords);
     setMaxWords(entry.params.maxWords);
     setSelectedLanguage(entry.params.outputLanguage);
@@ -497,7 +527,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedPrompt(entry.generatedPrompt);
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
-    setGeneratedImageDataUri(null); // Reset image when loading from history
+    setGeneratedImageDataUri(null); 
 
     toast({
       title: "Loaded from history",
@@ -602,6 +632,38 @@ export default function VisionaryPrompterPage() {
                     {renderSelectTrigger(Lightbulb, "Select target model", selectedTargetModel)}
                     <SelectContent>
                       {targetModelOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
+                          <div className="flex items-center gap-2">
+                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="image-type-select" className="text-xs font-medium mb-1 block">Desired Image Type</Label>
+                  <Select value={selectedImageType} onValueChange={(value: string) => setSelectedImageType(value as ImageTypeType)} disabled={anyLoading}>
+                    {renderSelectTrigger(ImageIcon, "Select image type", imageTypeOptions.find(opt => opt.value === selectedImageType)?.label)}
+                    <SelectContent>
+                      {imageTypeOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
+                          <div className="flex items-center gap-2">
+                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="aspect-ratio-select" className="text-xs font-medium mb-1 block">Desired Aspect Ratio</Label>
+                  <Select value={selectedAspectRatio} onValueChange={(value: string) => setSelectedAspectRatio(value as AspectRatioType)} disabled={anyLoading}>
+                    {renderSelectTrigger(Square, "Select aspect ratio", aspectRatioOptions.find(opt => opt.value === selectedAspectRatio)?.label)}
+                    <SelectContent>
+                      {aspectRatioOptions.map(opt => (
                         <SelectItem key={opt.value} value={opt.value} className="text-sm">
                           <div className="flex items-center gap-2">
                             {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
@@ -893,6 +955,8 @@ export default function VisionaryPrompterPage() {
                   <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-2.5 bg-muted/30">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs text-muted-foreground p-2 rounded-md border bg-background/50">
                       <div><strong>Model:</strong> {entry.params.targetModel}</div>
+                      <div><strong>Img Type:</strong> {entry.params.imageType}</div>
+                      <div><strong>Aspect:</strong> {entry.params.aspectRatio}</div>
                       <div><strong>Lang:</strong> {entry.params.outputLanguage}</div>
                       <div><strong>Style:</strong> {entry.params.promptStyle}</div>
                       <div><strong>Words:</strong> {entry.params.minWords}-{entry.params.maxWords}</div>
