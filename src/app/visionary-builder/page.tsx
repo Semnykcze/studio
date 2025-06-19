@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardFooter, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateRelatedTags, type GenerateRelatedTagsInput } from '@/ai/flows/generate-related-tags-flow';
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import { DraftingCompass, Wand2, Copy, Check, Sparkles, PlusCircle, Info, X, Edit } from 'lucide-react';
+import { DraftingCompass, Wand2, Copy, Check, Sparkles, PlusCircle, Info, X, Edit, MessageCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -92,15 +93,13 @@ export default function VisionaryBuilderPage() {
 
     setDisplayTags(prevDisplayTags => {
       return newTagTexts.map((tagText, index) => {
-        // Try to find an existing tag with the same text to preserve its state (suggestions, popoverOpen etc.)
         const existingTagByText = prevDisplayTags.find(dt => dt.text === tagText);
         if (existingTagByText) {
-          return { ...existingTagByText }; // Return existing tag if text matches, preserving ID and state
+          return { ...existingTagByText }; 
         }
-        // If no exact text match, try to find an existing tag by ID from a previous render cycle if a similar tag structure existed
-        // This is less reliable if tag texts change frequently but helps preserve IDs for stable tags.
+        
         const existingTagById = prevDisplayTags[index] 
-          ? { ...prevDisplayTags[index], text: tagText, suggestions: [], isLoadingSuggestions: false, popoverOpen: false } // Update text, reset suggestions if text changed
+          ? { ...prevDisplayTags[index], text: tagText, suggestions: [], isLoadingSuggestions: false, popoverOpen: false } 
           : null;
         
         return existingTagById || {
@@ -302,11 +301,11 @@ export default function VisionaryBuilderPage() {
                 <div className="flex flex-wrap gap-2.5">
                   {displayTags.map((tag) => (
                     <Popover key={tag.id} open={tag.popoverOpen} onOpenChange={(open) => togglePopover(tag.id, open)}>
-                      <div className="relative group/tag"> {/* Added group/tag here */}
+                      <div className="relative group/tag">
                         <PopoverTrigger asChild>
                           <Badge
                             variant="outline"
-                            className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1" // `group` class here is for PopoverTrigger's internal grouping if needed
+                            className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1"
                             onClick={() => { 
                                 if (!(tag.popoverOpen && tag.suggestions?.length)) {
                                     handleGenerateSuggestions(tag.id);
@@ -341,7 +340,7 @@ export default function VisionaryBuilderPage() {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 rounded-full bg-muted/70 hover:bg-destructive/80 hover:text-destructive-foreground text-muted-foreground opacity-0 group-hover/tag:opacity-100 transition-opacity" // Changed opacity
+                            className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 rounded-full bg-muted/70 hover:bg-destructive/80 hover:text-destructive-foreground text-muted-foreground opacity-0 group-hover/tag:opacity-100 transition-opacity"
                             onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag.id); }}
                             aria-label={`Remove tag ${tag.text}`}
                             title="Remove tag"
@@ -451,9 +450,20 @@ export default function VisionaryBuilderPage() {
         </div>
       </div>
        <footer className="mt-12 md:mt-16 py-6 text-center text-xs text-muted-foreground border-t">
-        <p>&copy; {new Date().getFullYear()} Visionary Builder. AI-Powered Creativity.</p>
+        <div className="container mx-auto flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-2">
+            <p>&copy; {new Date().getFullYear()} Visionary Builder. AI-Powered Creativity.</p>
+            <nav className="flex gap-x-3">
+              <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                 <Wand2 size={14} /> Visionary Prompter
+              </Link>
+              <Link href="/visionary-chatter" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                <MessageCircle size={14} /> Visionary Chatter
+              </Link>
+            </nav>
+        </div>
          {sessionId && (<p className="text-xs mt-1">Session: {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId}</p>)}
       </footer>
     </div>
   );
 }
+
