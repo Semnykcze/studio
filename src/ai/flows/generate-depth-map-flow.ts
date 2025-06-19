@@ -54,10 +54,7 @@ const generateDepthMapFlow = ai.defineFlow(
       ];
     }
     
-    const promptText = `Based on the input image, generate a high-quality grayscale depth map that estimates the 3D scene structure. 
-The output image should visually represent the relative distances of surfaces from the camera: lighter pixels indicate surfaces closer to the camera, and darker pixels indicate surfaces further away. 
-Strive for a result that is a plausible interpretation of depth, similar in convention to outputs from specialized depth estimation models (e.g., Midas, Depth Anything). 
-The output must be purely the visual depth map image (single channel grayscale ideally, or a grayscale representation if multi-channel), without any additional text, labels, watermarks, or annotations. Focus on capturing geometric details and relative depth variations.`;
+    const promptText = `Analyze the provided image. Generate a new grayscale image that represents a depth map of the original. In this depth map, lighter areas should correspond to parts of the scene closer to the viewer, and darker areas should correspond to parts further away. The output must be the depth map image itself, without any additional text, labels, watermarks, or annotations.`;
 
     try {
       const {media, text} = await ai.generate({
@@ -75,10 +72,13 @@ The output must be purely the visual depth map image (single channel grayscale i
       if (!media || !media.url) {
         console.warn('Depth map generation did not return media. Text response from model (if any):', text);
         let errorMessage = 'Depth map generation failed to produce an image.';
-        if (text && text.toLowerCase().includes('safety policies')) {
-            errorMessage = 'The depth map could not be generated due to safety policies.';
-        } else if (text) {
-            errorMessage = `Model response: ${text}`;
+        if (text) { 
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create')) {
+                errorMessage = `The depth map could not be generated. Model response: "${text}". This may be due to safety policies or image content.`;
+            } else {
+                errorMessage = `Depth map generation failed. Model response: "${text}"`;
+            }
         }
         throw new Error(errorMessage);
       }
@@ -86,10 +86,20 @@ The output must be purely the visual depth map image (single channel grayscale i
       return { depthMapDataUri: media.url };
     } catch (error: any) {
       console.error('Error in generateDepthMapFlow:', error);
-      if (error.message && error.message.toLowerCase().includes('filter')) {
-        throw new Error('The depth map generation request was blocked by safety filters.');
+      let finalErrorMessage = `Depth map generation failed: ${error.message || 'Unknown error'}`;
+
+      if (error.message) {
+        const lowerMessage = error.message.toLowerCase();
+        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy')) {
+          finalErrorMessage = 'The depth map generation request was blocked by safety filters. Try a different image or adjust NSFW settings if applicable.';
+        } else if (lowerMessage.includes('no valid candidates returned')) {
+          finalErrorMessage = 'Depth map generation failed: The AI model did not produce a valid image, possibly due to safety policies or the nature of the input image. Try a different image or adjust NSFW settings.';
+        } else if (lowerMessage.includes('deadline_exceeded')) {
+          finalErrorMessage = 'Depth map generation failed: The request to the AI model timed out. Please try again later.';
+        }
       }
-      throw new Error(`Depth map generation failed: ${error.message || 'Unknown error'}`);
+      throw new Error(finalErrorMessage);
     }
   }
 );
+
