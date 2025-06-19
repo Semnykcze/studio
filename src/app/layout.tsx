@@ -4,11 +4,11 @@ import Link from 'next/link';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
-import { WhatsNewButton } from '@/components/whats-new-button'; // Added
+import { WhatsNewButton } from '@/components/whats-new-button';
 import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { CreditsDisplay } from '@/components/credits-display';
 import { Button } from '@/components/ui/button';
-import { Bot, User, Settings, DraftingCompass } from 'lucide-react'; 
+import { Bot, User, Settings, DraftingCompass, Home } from 'lucide-react'; 
 import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
 
 export const metadata: Metadata = {
@@ -54,7 +54,7 @@ export default function RootLayout({
             <p>&copy; {new Date().getFullYear()} Visionary Apps. AI-Powered Creativity.</p>
             <nav className="flex gap-x-3">
               <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5">
-                 Visionary Prompter
+                 <Home size={14} /> Visionary Prompter
               </Link>
               <Link href="/visionary-chatter" className="hover:text-primary transition-colors flex items-center gap-1.5">
                 <Bot size={14} /> Visionary Chatter
