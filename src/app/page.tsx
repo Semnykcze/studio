@@ -104,6 +104,7 @@ export default function VisionaryPrompterPage() {
 
   const [generatedImageDataUri, setGeneratedImageDataUri] = useState<string | null>(null);
   const [isImageGenerating, setIsImageGenerating] = useState<boolean>(false);
+  const [imageSeed, setImageSeed] = useState<string>('');
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +277,7 @@ export default function VisionaryPrompterPage() {
       setGeneratedDepthMap(null); 
       setImageStyleAnalysis(null);
       setGeneratedImageDataUri(null); // Reset generated image
+      // setImageSeed(''); // Optionally reset seed on new image upload
     }
   };
 
@@ -415,8 +417,14 @@ export default function VisionaryPrompterPage() {
     setIsImageGenerating(true);
     setGeneratedImageDataUri(null);
     try {
+      let finalPromptForImageGeneration = generatedPrompt;
+      if (imageSeed.trim() !== '') {
+        // Appending the seed as a textual hint to the prompt
+        finalPromptForImageGeneration = `${generatedPrompt.trim()} (Artistic influence from seed: ${imageSeed.trim()})`;
+      }
+
       const input: GenerateImageFromPromptInput = {
-        prompt: generatedPrompt,
+        prompt: finalPromptForImageGeneration,
         allowNsfw: allowNsfw,
       };
       const result = await generateImageFromPrompt(input);
@@ -528,6 +536,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
     setGeneratedImageDataUri(null); 
+    // setImageSeed(''); // Optionally reset seed when loading from history
 
     toast({
       title: "Loaded from history",
@@ -807,11 +816,26 @@ export default function VisionaryPrompterPage() {
           {/* Generated Image Display Section */}
           {(generatedImageDataUri || isImageGenerating) && (
              <Card className="shadow-md mt-6 md:mt-8">
-                <CardHeader className="border-b">
-                    <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
-                        <ImageIcon className="mr-2 h-5 w-5" /> 
-                        {isImageGenerating ? "Generating Image..." : "Generated Image"}
-                    </CardTitle>
+                <CardHeader className="border-b flex flex-row items-center justify-between py-3 px-4 md:py-4 md:px-6">
+                    <div className="flex items-center">
+                        <ImageIcon className="mr-2 h-5 w-5 text-primary" /> 
+                        <CardTitle className="text-base md:text-lg font-headline text-primary">
+                            {isImageGenerating ? "Generating Image..." : "Generated Image"}
+                        </CardTitle>
+                    </div>
+                    <div className="flex items-center space-x-1.5">
+                        <Label htmlFor="image-seed-input" className="text-xs text-muted-foreground whitespace-nowrap">Seed:</Label>
+                        <Input
+                            id="image-seed-input"
+                            type="text"
+                            value={imageSeed}
+                            onChange={(e) => setImageSeed(e.target.value)}
+                            placeholder="Optional"
+                            className="h-7 w-20 md:w-24 text-xs px-2"
+                            disabled={anyLoading}
+                            aria-label="Image generation seed"
+                        />
+                    </div>
                 </CardHeader>
                 <CardContent className="p-4 md:p-6">
                     {isImageGenerating ? (
