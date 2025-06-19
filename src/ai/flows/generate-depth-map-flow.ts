@@ -44,10 +44,17 @@ const generateDepthMapFlow = ai.defineFlow(
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        // Consider adding 'HARM_CATEGORY_CIVIC_INTEGRITY' if available and relevant, though typically less so for image generation.
+        // Consider adding 'HARM_CATEGORY_CIVIC_INTEGRITY' if available and relevant.
     ];
     
-    const promptText = `Analyze the provided image. Generate a new grayscale image that represents a depth map of the original. In this depth map, lighter areas should correspond to parts of the scene closer to the viewer, and darker areas should correspond to parts further away. The output must be the depth map image itself, without any additional text, labels, watermarks, or annotations. Focus on accurately estimating the 3D scene structure and representing relative distances, similar to depth maps from specialized models.`;
+    const promptText = `Generate a high-quality, single-channel grayscale depth map from the provided image. The depth map should visually resemble outputs from specialized depth estimation models (like Midas or Depth Anything).
+Key characteristics:
+- Foreground objects (closest to the viewer) must be represented by very light, near-white pixels.
+- Background objects (furthest from the viewer) must be represented by very dark, near-black pixels.
+- Midground objects should use appropriate shades of gray to indicate their relative distance smoothly.
+- Ensure clear separation and distinction between foreground, midground, and background elements.
+- Focus on achieving smooth depth gradients and well-defined object boundaries.
+The output MUST be ONLY the generated depth map image itself, in a standard image format (e.g., PNG). Do NOT include any additional text, labels, watermarks, or annotations around or on the image. The image should be purely the depth data visualization.`;
 
     try {
       const {media, text} = await ai.generate({
