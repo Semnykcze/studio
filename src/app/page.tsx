@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from '@/hooks/use-toast';
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
@@ -29,7 +30,7 @@ import {
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -48,7 +49,7 @@ interface HistoryEntry {
     minWords: number;
     maxWords: number;
     outputLanguage: string;
-    photoFileName?: string;
+    photoSourceDescription?: string; // Changed from photoFileName
     allowNsfw: boolean;
     imageType: ImageTypeType;
     aspectRatio: AspectRatioType;
@@ -72,6 +73,10 @@ function generateSessionId() {
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState<string>('');
+  const [activeImageInputTab, setActiveImageInputTab] = useState<string>('file');
+
+
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
@@ -83,6 +88,7 @@ export default function VisionaryPrompterPage() {
   const [allowNsfw, setAllowNsfw] = useState<boolean>(false); 
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isUrlLoading, setIsUrlLoading] = useState<boolean>(false);
   const [isMagicLoading, setIsMagicLoading] = useState<boolean>(false);
   const [isTranslateLoading, setIsTranslateLoading] = useState<boolean>(false);
   const [isExtendingLoading, setIsExtendingLoading] = useState<boolean>(false);
@@ -173,7 +179,7 @@ export default function VisionaryPrompterPage() {
             minWords: entry.params?.minWords || 25,
             maxWords: entry.params?.maxWords || 150,
             outputLanguage: entry.params?.outputLanguage || 'English',
-            photoFileName: entry.params?.photoFileName || undefined,
+            photoSourceDescription: entry.params?.photoSourceDescription || undefined,
             allowNsfw: typeof entry.params?.allowNsfw === 'boolean' ? entry.params.allowNsfw : false,
           },
           imagePreviewUrl: null, 
@@ -255,6 +261,21 @@ export default function VisionaryPrompterPage() {
     { value: 'landscape', label: 'Landscape (e.g., 3:2, 16:9)', icon: RectangleHorizontal },
   ];
 
+  const clearImageInputsAndPreview = () => {
+    setUploadedImage(null);
+    setImageFile(null);
+    setImageUrlInput('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''; // Clear file input
+    }
+    // Reset AI-generated content related to the previous image
+    setGeneratedPrompt(''); 
+    setGeneratedDepthMap(null); 
+    setImageStyleAnalysis(null);
+    setGeneratedImageDataUri(null); 
+    setEditImagePrompt('');
+    setImageSeed('');
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -267,24 +288,73 @@ export default function VisionaryPrompterPage() {
         toast({ variant: "destructive", title: "Invalid file type", description: "Use JPG, PNG, WEBP or GIF." });
         return;
       }
-
+      
+      clearImageInputsAndPreview(); // Clear everything before setting new file
       setImageFile(file);
+      setImageUrlInput(''); // Clear URL input if a file is chosen
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      setGeneratedPrompt(''); 
-      setGeneratedDepthMap(null); 
-      setImageStyleAnalysis(null);
-      setGeneratedImageDataUri(null); 
-      // setImageSeed(''); // Optionally reset seed on new image upload
     }
   };
 
+  const handleLoadImageFromUrl = async () => {
+    if (!imageUrlInput.trim()) {
+      toast({ variant: "destructive", title: "No URL provided", description: "Please enter an image URL." });
+      return;
+    }
+
+    setIsUrlLoading(true);
+    clearImageInputsAndPreview(); // Clear previous image/file and AI content
+
+    try {
+      new URL(imageUrlInput); // Basic URL validation
+
+      const response = await fetch(imageUrlInput);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image. Status: ${response.status}`);
+      }
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('image/')) {
+        throw new Error('URL does not point to a valid image type (e.g., PNG, JPG).');
+      }
+
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+        setImageFile(null); // No actual File object from URL
+        toast({ title: "Image loaded from URL successfully!" });
+      };
+      reader.onerror = () => {
+        throw new Error("Failed to read image data from URL.");
+      };
+      reader.readAsDataURL(blob);
+
+    } catch (error: any) {
+      console.error("Error loading image from URL:", error);
+      let description = "Could not load image from the URL.";
+      if (error.message.includes("Failed to fetch") || error.name === 'TypeError') { // TypeError can happen with CORS
+          description = "Network error or CORS issue. Ensure the URL is correct, publicly accessible, and allows direct fetching. For some images, you might need to download and upload them manually.";
+      } else if (error.message.includes("Invalid URL")) {
+          description = "The entered URL is not valid.";
+      } else if (error.message) {
+          description = error.message;
+      }
+      toast({ variant: "destructive", title: "Error Loading Image from URL", description, duration: 7000 });
+      setUploadedImage(null);
+    } finally {
+      setIsUrlLoading(false);
+    }
+  };
+
+
   const handleGeneratePrompt = async () => {
-    if (!uploadedImage || !imageFile) {
-      toast({ variant: "destructive", title: "No image uploaded", description: "Please upload an image first." });
+    if (!uploadedImage) { // Only check for uploadedImage (data URI)
+      toast({ variant: "destructive", title: "No image available", description: "Please upload an image or load from URL first." });
       return;
     }
      if (sessionId === null) {
@@ -325,6 +395,15 @@ export default function VisionaryPrompterPage() {
       const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
       localStorage.setItem(creditsStorageKey, newCredits.toString());
 
+      let sourceDesc = 'Uploaded Image';
+      if (imageFile) {
+        sourceDesc = imageFile.name;
+      } else if (imageUrlInput.trim()) {
+        try {
+          sourceDesc = `URL: ${new URL(imageUrlInput).hostname}`;
+        } catch { sourceDesc = "Image from URL"; }
+      }
+
       const newHistoryEntry: HistoryEntry = {
         id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
         timestamp: new Date().toLocaleString(),
@@ -337,7 +416,7 @@ export default function VisionaryPrompterPage() {
           minWords: minWords,
           maxWords: maxWords,
           outputLanguage: selectedLanguage,
-          photoFileName: imageFile.name,
+          photoSourceDescription: sourceDesc,
           allowNsfw: allowNsfw,
         },
         generatedPrompt: result.prompt,
@@ -413,8 +492,6 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsImageGenerating(true);
-    // For edits, we don't want to clear the base image, but for new generations, yes.
-    // If baseImageUri is undefined, it's a new/regenerate, so clear old edit prompt.
     if (!baseImageUri) {
         setEditImagePrompt('');
     }
@@ -434,7 +511,6 @@ export default function VisionaryPrompterPage() {
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: baseImageUri ? "Image edited successfully!" : "Image generated successfully!" });
 
-      // If it's a new generation (not an edit and not a regeneration from an existing seed) set a seed
       if (!baseImageUri && imageSeed.trim() === '') {
         setImageSeed(Date.now().toString());
       }
@@ -457,7 +533,6 @@ export default function VisionaryPrompterPage() {
     let currentSeed = imageSeed;
     if (imageSeed.trim() === '') {
       currentSeed = Date.now().toString();
-      // Don't set imageSeed state here yet, only if generation is successful
     }
     const finalPromptForImageGeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
     await processImageGeneration(finalPromptForImageGeneration);
@@ -468,11 +543,10 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No prompt available", description: "Cannot regenerate without a base prompt." });
       return;
     }
-    // If no seed exists, generate one for this regeneration
     let currentSeed = imageSeed;
     if (imageSeed.trim() === '') {
         currentSeed = Date.now().toString();
-        setImageSeed(currentSeed); // Set it as this is an explicit regeneration
+        setImageSeed(currentSeed); 
     }
     const finalPromptForRegeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
     await processImageGeneration(finalPromptForRegeneration);
@@ -521,12 +595,6 @@ export default function VisionaryPrompterPage() {
     setIsDepthMapLoading(true);
     setGeneratedDepthMap(null);
     try {
-      //const result = await generateDepthMap({ photoDataUri: uploadedImage });
-      //setGeneratedDepthMap(result.depthMapDataUri);
-      //const newCredits = credits - 1;
-      //setCredits(newCredits);
-      //dispatchCreditsUpdate(newCredits);
-      //localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Depth map generation is currently disabled.", description: "This feature will be re-enabled soon." });
     } catch (error) {
       let desc = "Unknown error.";
@@ -583,8 +651,14 @@ export default function VisionaryPrompterPage() {
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
+    clearImageInputsAndPreview();
     setUploadedImage(entry.imagePreviewUrl || null);
+    // ImageFile will be null if loaded from history, user needs to re-supply if it was file based
     setImageFile(null); 
+    if (entry.params.photoSourceDescription?.startsWith("URL: ")) {
+      // Attempt to extract URL if possible, for display, but don't auto-load
+      // setImageUrlInput(...) // maybe not, could be confusing
+    }
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setSelectedImageType(entry.params.imageType);
@@ -594,15 +668,10 @@ export default function VisionaryPrompterPage() {
     setSelectedLanguage(entry.params.outputLanguage);
     setAllowNsfw(typeof entry.params.allowNsfw === 'boolean' ? entry.params.allowNsfw : false);
     setGeneratedPrompt(entry.generatedPrompt);
-    setGeneratedDepthMap(null); 
-    setImageStyleAnalysis(null);
-    setGeneratedImageDataUri(null); 
-    setImageSeed(''); 
-    setEditImagePrompt('');
-
+    
     toast({
       title: "Loaded from history",
-      description: `${entry.params.photoFileName || 'Image preview shown.'}${!entry.imagePreviewUrl ? ' Re-upload image for new generation.' : ''}`,
+      description: `${entry.params.photoSourceDescription || 'Image preview shown.'}${!entry.imagePreviewUrl ? ' Re-select image file or URL for new generation.' : ''}`,
       duration: 5000, 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -628,7 +697,7 @@ export default function VisionaryPrompterPage() {
     setMaxWords(newMax);
   };
 
-  const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating;
+  const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating;
 
   const renderSelectTrigger = (icon: React.ElementType, placeholder: string, value?: string) => (
     <SelectTrigger className="w-full text-sm md:text-base pl-3 pr-2 py-2 h-10 data-[placeholder]:text-muted-foreground">
@@ -654,7 +723,6 @@ export default function VisionaryPrompterPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-        {/* Column 1: Configuration & Image Preview */}
         <div className="lg:col-span-2 space-y-6 md:space-y-8">
           <Card className="shadow-md">
             <CardHeader className="border-b">
@@ -662,40 +730,79 @@ export default function VisionaryPrompterPage() {
                 <Settings2 className="mr-2 h-5 w-5" />
                 Image & Prompt Configuration
                 </CardTitle>
-                {/* <CardDescription className="text-sm">Upload your image and fine-tune generation settings.</CardDescription> */}
             </CardHeader>
             <CardContent className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Image Upload Section */}
               <div className="space-y-3">
-                <Label htmlFor="image-upload" className="text-sm font-medium flex items-center">
-                  <UploadCloud className="mr-2 h-4 w-4 text-primary" /> Upload Image
-                </Label>
-                <div
-                  className={`aspect-video w-full rounded-md border-2 border-dashed transition-all duration-300 ease-in-out
-                    ${uploadedImage ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary/70 bg-muted/50'} 
-                    flex items-center justify-center cursor-pointer group relative overflow-hidden`}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label="Upload image"
-                >
-                  {uploadedImage ? (
-                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded"/>
-                  ) : (
-                    <div className="text-center p-4">
-                      <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        <span className="font-semibold text-primary">Click or Drag & Drop</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, GIF, WEBP (Max 50MB)</p>
+                <Tabs value={activeImageInputTab} onValueChange={setActiveImageInputTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 h-10">
+                    <TabsTrigger value="file" className="text-xs sm:text-sm data-[state=active]:shadow-sm">
+                      <FileUp className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" /> Upload File
+                    </TabsTrigger>
+                    <TabsTrigger value="url" className="text-xs sm:text-sm data-[state=active]:shadow-sm">
+                      <LinkIcon className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" /> From URL
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="file" className="mt-3">
+                    <div
+                      className={`aspect-video w-full rounded-md border-2 border-dashed transition-all duration-300 ease-in-out
+                        ${uploadedImage && activeImageInputTab === 'file' ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary/70 bg-muted/50'} 
+                        flex items-center justify-center cursor-pointer group relative overflow-hidden`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Upload image from file"
+                    >
+                      {uploadedImage && (imageFile || (!imageFile && !imageUrlInput)) ? ( // Show preview if uploadedImage is set and it's from a file or the source is ambiguous but an image is loaded
+                        <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded"/>
+                      ) : (
+                        <div className="text-center p-4">
+                          <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            <span className="font-semibold text-primary">Click or Drag & Drop</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, GIF, WEBP (Max 50MB)</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <Input id="image-upload" type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageUpload} ref={fileInputRef} className="hidden" />
+                    <Input id="image-upload-file" type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageUpload} ref={fileInputRef} className="hidden" />
+                  </TabsContent>
+                  <TabsContent value="url" className="mt-3 space-y-2">
+                     {uploadedImage && !imageFile && imageUrlInput && activeImageInputTab === 'url' && ( // Show preview specifically if loaded from URL and URL tab is active
+                        <div className="aspect-video w-full rounded-md border-2 border-primary/50 flex items-center justify-center relative overflow-hidden mb-2">
+                           <Image src={uploadedImage} alt="URL preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="url preview"/>
+                        </div>
+                      )}
+                     {!uploadedImage && activeImageInputTab === 'url' && ( // Placeholder for URL tab if no image yet
+                        <div className="aspect-video w-full rounded-md border-2 border-dashed border-input bg-muted/50 flex items-center justify-center">
+                            <LinkIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+                        </div>
+                      )}
+                    <Label htmlFor="image-url-input" className="text-xs font-medium">Image URL</Label>
+                    <Input 
+                      id="image-url-input" 
+                      type="url" 
+                      placeholder="https://example.com/image.png" 
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      disabled={anyLoading}
+                      className="h-9 text-sm"
+                    />
+                    <Button onClick={handleLoadImageFromUrl} disabled={anyLoading || !imageUrlInput.trim()} className="w-full text-sm py-2 h-9" variant="outline">
+                      {isUrlLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                      Load Image from URL
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+                {uploadedImage && ( // General preview if any image is loaded, positioned outside tabs if preferred
+                    activeImageInputTab === 'file' && !imageFile && imageUrlInput ? null : // Avoid double preview if URL tab was active then file tab clicked
+                    (activeImageInputTab === 'url' && (imageFile || (!imageFile && !imageUrlInput))) ? null : // Avoid double preview if file tab was active then URL tab clicked
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {imageFile ? `File: ${imageFile.name}` : imageUrlInput.trim() && uploadedImage ? `From URL: ${imageUrlInput.substring(0, 40)}...` : "Ready to configure"}
+                    </div>
+                 )}
               </div>
 
-              {/* Configuration Options Section */}
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="target-model-select" className="text-xs font-medium mb-1 block">Target AI Model</Label>
@@ -822,14 +929,12 @@ export default function VisionaryPrompterPage() {
             )}
           </Card>
 
-          {/* Generated Prompt Section */}
           {(generatedPrompt || isLoading) && (
             <Card className="shadow-md">
               <CardHeader className="border-b">
                 <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                   <Lightbulb className="mr-2 h-5 w-5" /> AI Generated Prompt
                 </CardTitle>
-                {/* <CardDescription className="text-sm">Your crafted prompt. Use the tools to refine or copy it.</CardDescription> */}
               </CardHeader>
               <CardContent className="p-4 md:p-6 relative">
                 {isLoading && !generatedPrompt && (
@@ -875,7 +980,6 @@ export default function VisionaryPrompterPage() {
             </Card>
           )}
 
-          {/* Generated Image Display Section */}
           {(generatedImageDataUri || isImageGenerating) && (
              <Card className="shadow-md mt-6 md:mt-8">
                 <CardHeader className="border-b flex flex-row items-center justify-between py-3 px-4 md:py-4 md:px-6">
@@ -951,7 +1055,6 @@ export default function VisionaryPrompterPage() {
                           <p className="text-xs text-center text-destructive mt-2 max-w-md mx-auto">Not enough credits to regenerate or edit.</p>
                         )}
 
-                        {/* Edit Image Prompt Section */}
                         <div className="mt-4 max-w-md mx-auto space-y-2">
                            <Label htmlFor="edit-image-prompt" className="text-xs font-medium flex items-center">
                              <PencilLine className="mr-1.5 h-3.5 w-3.5 text-primary" /> Edit Image Prompt:
@@ -983,7 +1086,6 @@ export default function VisionaryPrompterPage() {
 
         </div>
 
-        {/* Column 2: Analysis Tools */}
         <div className="lg:col-span-1 space-y-6 md:space-y-8">
           <Card className="shadow-md">
             <CardHeader className="border-b">
@@ -1098,8 +1200,8 @@ export default function VisionaryPrompterPage() {
                         )}
                       </div>
                       <div className="flex-grow overflow-hidden">
-                        <p className="font-medium text-xs sm:text-sm truncate text-foreground" title={entry.params.photoFileName || 'Uploaded Image'}>
-                          {entry.params.photoFileName || 'Previously Uploaded Image'}
+                        <p className="font-medium text-xs sm:text-sm truncate text-foreground" title={entry.params.photoSourceDescription || 'Uploaded Image'}>
+                          {entry.params.photoSourceDescription || 'Previously Uploaded Image'}
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.timestamp}</p>
                       </div>
@@ -1157,3 +1259,5 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
+    
