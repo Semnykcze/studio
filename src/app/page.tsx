@@ -29,7 +29,7 @@ import {
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -276,7 +276,7 @@ export default function VisionaryPrompterPage() {
       setGeneratedPrompt(''); 
       setGeneratedDepthMap(null); 
       setImageStyleAnalysis(null);
-      setGeneratedImageDataUri(null); // Reset generated image
+      setGeneratedImageDataUri(null); 
       // setImageSeed(''); // Optionally reset seed on new image upload
     }
   };
@@ -415,13 +415,19 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsImageGenerating(true);
-    setGeneratedImageDataUri(null);
+    setGeneratedImageDataUri(null); // Clear previous image
+    
+    let currentSeed = imageSeed;
+    if (imageSeed.trim() === '') {
+      currentSeed = Date.now().toString();
+      setImageSeed(currentSeed); // Set the seed in state if it was empty
+    }
+
     try {
       let finalPromptForImageGeneration = generatedPrompt;
-      if (imageSeed.trim() !== '') {
-        // Appending the seed as a textual hint to the prompt
-        finalPromptForImageGeneration = `${generatedPrompt.trim()} (Artistic influence from seed: ${imageSeed.trim()})`;
-      }
+      // Append seed conceptually to prompt
+      finalPromptForImageGeneration = `${generatedPrompt.trim()} (Artistic influence from seed: ${currentSeed.trim()})`;
+      
 
       const input: GenerateImageFromPromptInput = {
         prompt: finalPromptForImageGeneration,
@@ -443,6 +449,21 @@ export default function VisionaryPrompterPage() {
     } finally {
       setIsImageGenerating(false);
     }
+  };
+
+  const handleSaveImage = () => {
+    if (!generatedImageDataUri) {
+      toast({ variant: "destructive", title: "No image to save" });
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = generatedImageDataUri;
+    const fileName = `visionary_image_${imageSeed || Date.now()}.png`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Image download started!", description: fileName });
   };
 
 
@@ -536,7 +557,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
     setGeneratedImageDataUri(null); 
-    // setImageSeed(''); // Optionally reset seed when loading from history
+    setImageSeed(''); // Reset seed when loading from history
 
     toast({
       title: "Loaded from history",
@@ -600,7 +621,7 @@ export default function VisionaryPrompterPage() {
                 <Settings2 className="mr-2 h-5 w-5" />
                 Image & Prompt Configuration
                 </CardTitle>
-                <CardDescription className="text-sm">Upload your image and fine-tune generation settings.</CardDescription>
+                {/* <CardDescription className="text-sm">Upload your image and fine-tune generation settings.</CardDescription> */}
             </CardHeader>
             <CardContent className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Image Upload Section */}
@@ -619,7 +640,7 @@ export default function VisionaryPrompterPage() {
                   aria-label="Upload image"
                 >
                   {uploadedImage ? (
-                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded" />
+                    <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded"/>
                   ) : (
                     <div className="text-center p-4">
                       <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -650,7 +671,7 @@ export default function VisionaryPrompterPage() {
                     </SelectContent>
                   </Select>
                 </div>
-
+                
                 <div>
                   <Label htmlFor="image-type-select" className="text-xs font-medium mb-1 block">Desired Image Type</Label>
                   <Select value={selectedImageType} onValueChange={(value: string) => setSelectedImageType(value as ImageTypeType)} disabled={anyLoading}>
@@ -767,7 +788,7 @@ export default function VisionaryPrompterPage() {
                 <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                   <Lightbulb className="mr-2 h-5 w-5" /> AI Generated Prompt
                 </CardTitle>
-                <CardDescription className="text-sm">Your crafted prompt. Use the tools to refine or copy it.</CardDescription>
+                {/* <CardDescription className="text-sm">Your crafted prompt. Use the tools to refine or copy it.</CardDescription> */}
               </CardHeader>
               <CardContent className="p-4 md:p-6 relative">
                 {isLoading && !generatedPrompt && (
@@ -820,7 +841,7 @@ export default function VisionaryPrompterPage() {
                     <div className="flex items-center">
                         <ImageIcon className="mr-2 h-5 w-5 text-primary" /> 
                         <CardTitle className="text-base md:text-lg font-headline text-primary">
-                            {isImageGenerating ? "Generating Image..." : "Generated Image"}
+                            {isImageGenerating && !generatedImageDataUri ? "Generating Image..." : "Generated Image"}
                         </CardTitle>
                     </div>
                     <div className="flex items-center space-x-1.5">
@@ -830,23 +851,66 @@ export default function VisionaryPrompterPage() {
                             type="text"
                             value={imageSeed}
                             onChange={(e) => setImageSeed(e.target.value)}
-                            placeholder="Optional"
+                            placeholder="Auto"
                             className="h-7 w-20 md:w-24 text-xs px-2"
-                            disabled={anyLoading}
+                            disabled={anyLoading && isImageGenerating}
                             aria-label="Image generation seed"
                         />
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 md:p-6">
-                    {isImageGenerating ? (
+                    {isImageGenerating && !generatedImageDataUri ? ( // Show spinner only if no image is yet loaded
                         <div className="flex items-center justify-center min-h-[256px] aspect-square w-full max-w-md mx-auto bg-muted/50 rounded-md">
                             <LoadingSpinner size="2rem" message="Conjuring pixels..." />
                         </div>
                     ) : generatedImageDataUri ? (
-                        <div className="aspect-square w-full max-w-md mx-auto relative rounded-md overflow-hidden border animate-fade-in-fast">
-                            <Image src={generatedImageDataUri} alt="AI Generated Image" layout="fill" objectFit="contain" data-ai-hint="generated art" />
-                        </div>
+                        <>
+                          <div className="aspect-square w-full max-w-md mx-auto relative rounded-md overflow-hidden border animate-fade-in-fast">
+                              <Image src={generatedImageDataUri} alt="AI Generated Image" layout="fill" objectFit="contain" data-ai-hint="generated art"/>
+                          </div>
+                          <div className="mt-4 flex items-center justify-end space-x-1 border border-input rounded-md p-1 bg-muted/50 max-w-md mx-auto">
+                              <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={handleTryGenerateImage} // This is effectively "Regenerate"
+                                  title={`Regenerate Image (${IMAGE_GENERATION_COST} Credits)`} 
+                                  disabled={anyLoading || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
+                                  className="h-7 px-1.5 text-xs" 
+                                  aria-label="Regenerate Image"
+                              >
+                                  {isImageGenerating ? <LoadingSpinner size="0.8rem" /> : <RefreshCw className="h-3.5 w-3.5" />} 
+                                  <span className="ml-1 hidden sm:inline">Regenerate ({IMAGE_GENERATION_COST} Cr)</span>
+                              </Button>
+                              <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={handleSaveImage} 
+                                  title="Save Image" 
+                                  disabled={anyLoading || !generatedImageDataUri} 
+                                  className="h-7 px-1.5 text-xs" 
+                                  aria-label="Save Image"
+                              >
+                                  <DownloadCloud className="h-3.5 w-3.5" />
+                                  <span className="ml-1 hidden sm:inline">Save</span>
+                              </Button>
+                               {/* Placeholder for future Upscale/Variations - Will inform user they are not available */}
+                              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Upscale (Coming Soon)">
+                                <Layers className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Upscale</span>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs" disabled title="Variations (Coming Soon)">
+                                <Wand2 className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Variations</span>
+                              </Button>
+                          </div>
+                          {(credits !== null && credits < IMAGE_GENERATION_COST && generatedImageDataUri && !isImageGenerating) && (
+                            <p className="text-xs text-center text-destructive mt-2 max-w-md mx-auto">Not enough credits to regenerate.</p>
+                          )}
+                        </>
                     ) : null}
+                     {isImageGenerating && generatedImageDataUri && ( // Shows spinner on top of old image during regeneration
+                        <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm rounded-md">
+                            <LoadingSpinner size="2rem" message="Regenerating..." />
+                        </div>
+                     )}
                 </CardContent>
             </Card>
           )}
@@ -1028,3 +1092,4 @@ export default function VisionaryPrompterPage() {
   );
 }
 
+    
