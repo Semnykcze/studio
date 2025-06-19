@@ -4,6 +4,7 @@ import Link from 'next/link';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { WhatsNewButton } from '@/components/whats-new-button'; // Added
 import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { CreditsDisplay } from '@/components/credits-display';
 import { Button } from '@/components/ui/button';
@@ -30,8 +31,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
         <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2">
-          {/* Reversed Order: ThemeToggle, AppSwitcher, Builder, Settings, User, Credits */}
+          {/* Order: ThemeToggle, News, AppSwitcher, Builder, Settings, User, Credits */}
           <ThemeToggleButton />
+          <WhatsNewButton />
           <AppSwitcherButton />
           <VisionaryBuilderNavButton />
           <Button variant="outline" size="icon" asChild className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="Settings">

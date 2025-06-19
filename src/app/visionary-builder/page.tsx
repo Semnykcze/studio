@@ -83,26 +83,37 @@ export default function VisionaryBuilderPage() {
     }
   }, []);
 
-  const parsePromptToTags = useCallback((prompt: string) => {
-    if (!prompt.trim()) {
-      setDisplayTags([]); 
+  const parsePromptToTags = useCallback((promptText: string) => {
+    if (!promptText.trim()) {
+      setDisplayTags([]);
       return;
     }
-    const newTagTexts = prompt.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    const newTagTexts = promptText.split(',').map(t => t.trim()).filter(t => t.length > 0);
 
     setDisplayTags(prevDisplayTags => {
       return newTagTexts.map((tagText, index) => {
-        const existingTag = prevDisplayTags.find(dt => dt.text === tagText);
-        return {
-          id: existingTag?.id || `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
+        // Try to find an existing tag with the same text to preserve its state (suggestions, popoverOpen etc.)
+        const existingTagByText = prevDisplayTags.find(dt => dt.text === tagText);
+        if (existingTagByText) {
+          return { ...existingTagByText }; // Return existing tag if text matches, preserving ID and state
+        }
+        // If no exact text match, try to find an existing tag by ID from a previous render cycle if a similar tag structure existed
+        // This is less reliable if tag texts change frequently but helps preserve IDs for stable tags.
+        const existingTagById = prevDisplayTags[index] 
+          ? { ...prevDisplayTags[index], text: tagText, suggestions: [], isLoadingSuggestions: false, popoverOpen: false } // Update text, reset suggestions if text changed
+          : null;
+        
+        return existingTagById || {
+          id: `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
           text: tagText,
-          suggestions: existingTag?.suggestions || [],
-          isLoadingSuggestions: existingTag?.isLoadingSuggestions || false,
-          popoverOpen: existingTag?.popoverOpen || false,
+          suggestions: [],
+          isLoadingSuggestions: false,
+          popoverOpen: false,
         };
       });
     });
-  }, []); 
+  }, []);
+
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_BUILDER_PROMPT_KEY, mainPrompt);
@@ -284,18 +295,18 @@ export default function VisionaryBuilderPage() {
                   <Sparkles className="mr-2 h-5 w-5" /> Enhance Tags
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Click <X size={14} className="inline align-text-bottom"/> to remove.
+                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Click <X size={14} className="inline align-text-bottom"/> to remove (visible on hover).
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6">
                 <div className="flex flex-wrap gap-2.5">
                   {displayTags.map((tag) => (
                     <Popover key={tag.id} open={tag.popoverOpen} onOpenChange={(open) => togglePopover(tag.id, open)}>
-                      <div className="relative group/tag">
+                      <div className="relative group/tag"> {/* Added group/tag here */}
                         <PopoverTrigger asChild>
                           <Badge
                             variant="outline"
-                            className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1"
+                            className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1" // `group` class here is for PopoverTrigger's internal grouping if needed
                             onClick={() => { 
                                 if (!(tag.popoverOpen && tag.suggestions?.length)) {
                                     handleGenerateSuggestions(tag.id);
@@ -330,7 +341,7 @@ export default function VisionaryBuilderPage() {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 rounded-full bg-muted/70 hover:bg-destructive/80 hover:text-destructive-foreground text-muted-foreground opacity-50 group-hover/tag:opacity-100 transition-opacity"
+                            className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 rounded-full bg-muted/70 hover:bg-destructive/80 hover:text-destructive-foreground text-muted-foreground opacity-0 group-hover/tag:opacity-100 transition-opacity" // Changed opacity
                             onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag.id); }}
                             aria-label={`Remove tag ${tag.text}`}
                             title="Remove tag"
@@ -423,7 +434,7 @@ export default function VisionaryBuilderPage() {
             </CardHeader>
             <CardContent className="p-4 md:p-6 text-sm space-y-2 text-muted-foreground">
                 <p>1. Start by typing your core ideas into the "Main Prompt" area. Use commas (,) to separate distinct concepts (tags).</p>
-                <p>2. Tags will appear below. Click <X size={14} className="inline align-text-bottom text-destructive"/> to remove a tag.</p>
+                <p>2. Tags will appear below. Hover over a tag to see the <X size={14} className="inline align-text-bottom text-destructive"/> icon to remove it.</p>
                 <p>3. Click the <Wand2 size={14} className="inline align-text-bottom"/> icon on a tag to get AI keyword suggestions ({RELATED_TAGS_GENERATION_COST} credit).</p>
                 <p>4. Click <PlusCircle size={14} className="inline align-text-bottom text-green-500"/> next to a suggestion to add it to your main prompt.</p>
                 <p>5. Use the "Transform Full Prompt" section to describe changes to the entire prompt ({PROMPT_TRANSFORMATION_COST} credit).</p>
@@ -446,5 +457,3 @@ export default function VisionaryBuilderPage() {
     </div>
   );
 }
-
-    
