@@ -23,7 +23,7 @@ const RELATED_TAGS_GENERATION_COST = 1;
 const PROMPT_TRANSFORMATION_COST = 1;
 
 interface DisplayTag {
-  id: string; // Unique ID for React key, e.g., `tag-${index}`
+  id: string; 
   text: string;
   suggestions?: string[];
   isLoadingSuggestions?: boolean;
@@ -61,7 +61,14 @@ export default function VisionaryBuilderPage() {
     const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
     const storedCredits = localStorage.getItem(creditsStorageKey);
     if (storedCredits !== null) {
-      setCredits(parseInt(storedCredits, 10));
+      const parsedCredits = parseInt(storedCredits, 10);
+       if (!isNaN(parsedCredits)) {
+        setCredits(parsedCredits);
+      } else {
+        localStorage.setItem(creditsStorageKey, '10');
+        setCredits(10);
+        dispatchCreditsUpdate(10);
+      }
     } else {
       localStorage.setItem(creditsStorageKey, '10'); 
       setCredits(10);
@@ -78,27 +85,24 @@ export default function VisionaryBuilderPage() {
 
   const parsePromptToTags = useCallback((prompt: string) => {
     if (!prompt.trim()) {
-      setDisplayTags([]);
+      setDisplayTags([]); 
       return;
     }
-    const parsed = prompt
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0)
-      .map((tagText, index) => {
-        // Try to find existing tag by text if already parsed, to preserve suggestion state
-        const existingTag = displayTags.find(dt => dt.text === tagText);
+    const newTagTexts = prompt.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+    setDisplayTags(prevDisplayTags => {
+      return newTagTexts.map((tagText, index) => {
+        const existingTag = prevDisplayTags.find(dt => dt.text === tagText);
         return {
-          id: `tag-${index}`, // Simpler ID based on current index
+          id: existingTag?.id || `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
           text: tagText,
-          suggestions: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.suggestions : [], // Preserve suggestions if index and text match previous
-          isLoadingSuggestions: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.isLoadingSuggestions : false,
-          popoverOpen: existingTag?.id.startsWith(`tag-${index}`) ? existingTag.popoverOpen : false,
+          suggestions: existingTag?.suggestions || [],
+          isLoadingSuggestions: existingTag?.isLoadingSuggestions || false,
+          popoverOpen: existingTag?.popoverOpen || false,
         };
       });
-    setDisplayTags(parsed);
-  }, [displayTags]); // displayTags in dependency to help preserve state somewhat, though index-based ID is primary
-
+    });
+  }, []); 
 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_BUILDER_PROMPT_KEY, mainPrompt);
@@ -110,7 +114,6 @@ export default function VisionaryBuilderPage() {
     const newDisplayTags = displayTags.filter(tag => tag.id !== tagIdToRemove);
     const newMainPrompt = newDisplayTags.map(tag => tag.text).join(', ');
     setMainPrompt(newMainPrompt);
-    // displayTags will be updated by the useEffect watching mainPrompt
   };
   
   const handleGenerateSuggestions = async (tagId: string) => {
@@ -125,7 +128,7 @@ export default function VisionaryBuilderPage() {
     }
     
     setDisplayTags(prevTags =>
-      prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: true, suggestions: [], popoverOpen: true } : t)) // Open popover on load
+      prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: true, suggestions: [], popoverOpen: true } : t)) 
     );
 
     try {
@@ -145,12 +148,10 @@ export default function VisionaryBuilderPage() {
         dispatchCreditsUpdate(newCredits);
         localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       }
-      // Toast for success is optional, popover opening might be enough feedback
-      // toast({ title: `Suggestions for "${targetTag.text}" generated!` });
     } catch (error) {
       toast({ variant: "destructive", title: "Error generating suggestions", description: error instanceof Error ? error.message : String(error) });
       setDisplayTags(prevTags =>
-        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false, popoverOpen: false } : t)) // Close popover on error
+        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false, popoverOpen: false } : t)) 
       );
     }
   };
@@ -188,8 +189,6 @@ export default function VisionaryBuilderPage() {
           }
           return { ...t, popoverOpen: newOpenState };
         }
-        // Close other popovers if only one should be open at a time
-        // return { ...t, popoverOpen: false }; 
         return t;
       })
     );
@@ -214,11 +213,10 @@ export default function VisionaryBuilderPage() {
       const input: TransformPromptInput = {
         originalPrompt: mainPrompt,
         transformationInstruction: transformationInstruction,
-        // Assuming default language English, or could add a language selector later
       };
       const result = await transformPrompt(input);
-      setMainPrompt(result.transformedPrompt); // This will trigger re-parsing of tags
-      setTransformationInstruction(''); // Clear instruction field
+      setMainPrompt(result.transformedPrompt); 
+      setTransformationInstruction(''); 
       
       if (sessionId && credits !== null) {
         const newCredits = credits - PROMPT_TRANSFORMATION_COST;
@@ -298,13 +296,13 @@ export default function VisionaryBuilderPage() {
                           <Badge
                             variant="outline"
                             className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1"
-                            onClick={() => { // If popover is already open with suggestions, clicking badge itself does nothing new.
+                            onClick={() => { 
                                 if (!(tag.popoverOpen && tag.suggestions?.length)) {
                                     handleGenerateSuggestions(tag.id);
                                 } else if (tag.popoverOpen) {
-                                   togglePopover(tag.id, false); // Allow badge click to close if already open
+                                   togglePopover(tag.id, false); 
                                 } else {
-                                   togglePopover(tag.id, true); // Allow badge click to open if closed
+                                   togglePopover(tag.id, true); 
                                 }
                             }}
                           >
@@ -449,3 +447,4 @@ export default function VisionaryBuilderPage() {
   );
 }
 
+    
