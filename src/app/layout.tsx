@@ -7,11 +7,12 @@ import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { CreditsDisplay } from '@/components/credits-display';
 import { Button } from '@/components/ui/button';
-import { Bot, User, Settings } from 'lucide-react'; 
+import { Bot, User, Settings, DraftingCompass } from 'lucide-react'; 
+import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
 
 export const metadata: Metadata = {
-  title: 'Visionary Prompter & Chatter', 
-  description: 'Analyze images, generate optimized prompts, and chat with an AI prompt expert.',
+  title: 'Visionary Suite', 
+  description: 'Analyze images, generate optimized prompts, chat with an AI prompt expert, and build prompts.',
 };
 
 export default function RootLayout({
@@ -29,9 +30,10 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
         <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2">
-          {/* Reversed Order: ThemeToggle, AppSwitcher, Settings, User, Credits */}
+          {/* Reversed Order: ThemeToggle, AppSwitcher, Builder, Settings, User, Credits */}
           <ThemeToggleButton />
           <AppSwitcherButton />
+          <VisionaryBuilderNavButton />
           <Button variant="outline" size="icon" asChild className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="Settings">
             <Link href="/admin">
               <Settings className="h-[1.1rem] w-[1.1rem]" />
@@ -48,9 +50,15 @@ export default function RootLayout({
         <footer className="w-full border-t border-border py-6 text-center text-muted-foreground text-xs md:text-sm">
           <div className="container mx-auto flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-2">
             <p>&copy; {new Date().getFullYear()} Visionary Apps. AI-Powered Creativity.</p>
-            <nav>
+            <nav className="flex gap-x-3">
+              <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                 Visionary Prompter
+              </Link>
               <Link href="/visionary-chatter" className="hover:text-primary transition-colors flex items-center gap-1.5">
                 <Bot size={14} /> Visionary Chatter
+              </Link>
+              <Link href="/visionary-builder" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                <DraftingCompass size={14} /> Visionary Builder
               </Link>
             </nav>
           </div>
