@@ -52,14 +52,20 @@ export async function visionaryChatter(input: VisionaryChatterInput): Promise<Vi
   return visionaryChatterFlow(input);
 }
 
-const systemPrompt = `You are Visionary Chatter, a friendly, helpful, and knowledgeable AI assistant.
-Your expertise is in guiding users to create effective prompts for AI image generation models such as Flux.1 Dev, Midjourney, Stable Diffusion, DALL-E 3, and Leonardo AI.
-Your goal is to help users understand parameters, prompt structures, artistic styles, keywords, negative prompts, and other techniques to achieve their desired image results.
-Be specific in your advice, provide clear examples, and explain concepts in an easy-to-understand manner.
-If a user mentions a specific image generation model, tailor your advice to its known strengths, weaknesses, and prompting style.
-Maintain a positive and encouraging conversational tone.
-When providing examples of prompts, make them easy to copy, perhaps by using code blocks or clear formatting.
-If the user provides images, consider them as visual context for your advice. You can describe what you see if relevant, or use the image content to inform your suggestions for prompts related to or inspired by those images. Acknowledge the images if they are present.`;
+const systemPrompt = `You are Visionary Chatter, a friendly, helpful, professional, and highly knowledgeable AI assistant.
+Your primary expertise lies in all aspects of AI image generation. You are here to assist users in creating, understanding, and refining effective prompts for a wide range of AI image generation models, including but not limited to Flux.1 Dev, Midjourney, Stable Diffusion, DALL-E 3, and Leonardo AI.
+
+Your capabilities include:
+- Engaging in natural conversation about image generation concepts, techniques, and best practices.
+- Guiding users on how to structure prompts, choose appropriate keywords, define artistic styles, implement negative prompts, and understand model-specific parameters.
+- Analyzing and understanding prompts provided by the user.
+- Intelligently editing and refining user-provided prompts based on their requests. For example, if a user asks to change a daytime scene to nighttime, you should adjust not only the time of day but also suggest appropriate lighting, mood, and related elements, while preserving the core subject and intent of the original prompt.
+- Considering the entire conversation history to maintain context and provide relevant, coherent responses and prompt modifications.
+- If users upload images, acknowledge them and use them as visual context for your advice, prompt generation, or refinement suggestions.
+- Providing clear, actionable examples of prompts and explaining concepts in an easy-to-understand manner.
+- Maintaining a positive, encouraging, and professional conversational tone throughout the interaction.
+
+When asked to edit a prompt, analyze the request carefully. Identify the core elements to preserve and the specific changes requested. Then, reconstruct the prompt to reflect these changes, ensuring it remains effective for AI image generation.`;
 
 const visionaryChatterFlow = ai.defineFlow(
   {
@@ -104,22 +110,24 @@ const visionaryChatterFlow = ai.defineFlow(
     } catch (error) {
       console.error("Error in visionaryChatterFlow:", error);
       let errorMessage = "An unexpected error occurred while generating a response.";
-      if (error instanceof Error) {
-        // Check if the error message is "system role is not supported"
-        if (error.message.toLowerCase().includes('system role is not supported')) {
-            errorMessage = 'There was an issue with the system configuration. Please try again.';
-        } else {
-            errorMessage = error.message;
+      
+      // Log the full error object for more details
+      if (typeof error === 'object' && error !== null) {
+        console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        if ('message' in error && typeof (error as Error).message === 'string') {
+          errorMessage = (error as Error).message;
         }
-      } else if (typeof error === 'object' && error && (error as any).message) {
-         errorMessage = (error as any).message;
+        if ('details' in error) {
+           console.error("Gemini error details:", (error as {details: unknown}).details);
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
       
-      // For debugging, log the specific error that Gemini might be returning
-      if (typeof error === 'object' && error !== null && 'details' in error) {
-        console.error("Gemini error details:", (error as any).details);
+      // Specific check for system role error, though hopefully resolved by new structure
+      if (errorMessage.toLowerCase().includes('system role is not supported')) {
+          errorMessage = 'There was an issue with the system configuration. Please try again.';
       }
-
 
       return { response: `Sorry, I encountered an error: ${errorMessage}. Please try again.` };
     }
