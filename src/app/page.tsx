@@ -21,12 +21,14 @@ import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
 //import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
+import { generateImageFromPrompt, type GenerateImageFromPromptInput } from '@/ai/flows/generate-image-from-prompt-flow';
+
 
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
-  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -55,6 +57,7 @@ const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_';
 const INITIAL_CREDITS = 10;
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
+const IMAGE_GENERATION_COST = 10;
 
 function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -90,6 +93,10 @@ export default function VisionaryPrompterPage() {
 
   const [imageStyleAnalysis, setImageStyleAnalysis] = useState<AnalyzeImageStyleOutput | null>(null);
   const [isStyleAnalysisLoading, setIsStyleAnalysisLoading] = useState<boolean>(false);
+
+  const [generatedImageDataUri, setGeneratedImageDataUri] = useState<string | null>(null);
+  const [isImageGenerating, setIsImageGenerating] = useState<boolean>(false);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -244,6 +251,7 @@ export default function VisionaryPrompterPage() {
       setGeneratedPrompt(''); 
       setGeneratedDepthMap(null); 
       setImageStyleAnalysis(null);
+      setGeneratedImageDataUri(null); // Reset generated image
     }
   };
 
@@ -267,6 +275,7 @@ export default function VisionaryPrompterPage() {
 
     setIsLoading(true);
     setGeneratedPrompt('');
+    setGeneratedImageDataUri(null); // Reset image when generating new prompt
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
@@ -361,6 +370,46 @@ export default function VisionaryPrompterPage() {
     }
   };
 
+  const handleTryGenerateImage = async () => {
+    if (!generatedPrompt) {
+      toast({ variant: "destructive", title: "No prompt available", description: "Please generate a prompt first." });
+      return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
+      return;
+    }
+    if (credits === null || credits < IMAGE_GENERATION_COST) {
+      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${IMAGE_GENERATION_COST} credits to generate an image.` });
+      return;
+    }
+
+    setIsImageGenerating(true);
+    setGeneratedImageDataUri(null);
+    try {
+      const input: GenerateImageFromPromptInput = {
+        prompt: generatedPrompt,
+        allowNsfw: allowNsfw, // Pass the NSFW preference
+      };
+      const result = await generateImageFromPrompt(input);
+      setGeneratedImageDataUri(result.imageDataUri);
+
+      const newCredits = credits - IMAGE_GENERATION_COST;
+      setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      toast({ title: "Image generated successfully!" });
+    } catch (error) {
+      let desc = "Unknown error.";
+      if (error instanceof Error) desc = error.message;
+      else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message: string}).message);
+      toast({ variant: "destructive", title: "Image Generation Failed", description: desc });
+    } finally {
+      setIsImageGenerating(false);
+    }
+  };
+
+
   const handleGenerateDepthMap = async () => {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for depth map" }); return;
@@ -448,6 +497,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedPrompt(entry.generatedPrompt);
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
+    setGeneratedImageDataUri(null); // Reset image when loading from history
 
     toast({
       title: "Loaded from history",
@@ -477,7 +527,7 @@ export default function VisionaryPrompterPage() {
     setMaxWords(newMax);
   };
 
-  const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading;
+  const anyLoading = isLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating;
 
   const renderSelectTrigger = (icon: React.ElementType, placeholder: string, value?: string) => (
     <SelectTrigger className="w-full text-sm md:text-base pl-3 pr-2 py-2 h-10 data-[placeholder]:text-muted-foreground">
@@ -655,6 +705,18 @@ export default function VisionaryPrompterPage() {
                     </div>
                 )}
                 <div className="mb-2.5 flex items-center justify-end space-x-1 border border-input rounded-md p-1 bg-muted/50">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleTryGenerateImage} 
+                        title={`Try Generate Image (${IMAGE_GENERATION_COST} Credits)`} 
+                        disabled={anyLoading || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
+                        className="h-7 px-1.5 text-xs" 
+                        aria-label="Try Generate Image"
+                    >
+                        {isImageGenerating ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
+                        <span className="ml-1 hidden sm:inline">Generate ({IMAGE_GENERATION_COST} Cr)</span>
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
                         {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Magic</span>
                     </Button>
@@ -679,6 +741,30 @@ export default function VisionaryPrompterPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Generated Image Display Section */}
+          {(generatedImageDataUri || isImageGenerating) && (
+             <Card className="shadow-md mt-6 md:mt-8">
+                <CardHeader className="border-b">
+                    <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                        <ImageIcon className="mr-2 h-5 w-5" /> 
+                        {isImageGenerating ? "Generating Image..." : "Generated Image"}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                    {isImageGenerating ? (
+                        <div className="flex items-center justify-center min-h-[256px] aspect-square w-full max-w-md mx-auto bg-muted/50 rounded-md">
+                            <LoadingSpinner size="2rem" message="Conjuring pixels..." />
+                        </div>
+                    ) : generatedImageDataUri ? (
+                        <div className="aspect-square w-full max-w-md mx-auto relative rounded-md overflow-hidden border animate-fade-in-fast">
+                            <Image src={generatedImageDataUri} alt="AI Generated Image" layout="fill" objectFit="contain" data-ai-hint="generated art" />
+                        </div>
+                    ) : null}
+                </CardContent>
+            </Card>
+          )}
+
         </div>
 
         {/* Column 2: Analysis Tools */}
