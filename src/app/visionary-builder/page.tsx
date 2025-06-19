@@ -93,22 +93,22 @@ export default function VisionaryBuilderPage() {
 
     setDisplayTags(prevDisplayTags => {
       return newTagTexts.map((tagText, index) => {
-        const existingTagByText = prevDisplayTags.find(dt => dt.text === tagText);
-        if (existingTagByText) {
-          return { ...existingTagByText }; 
+        const existingTagWithSameText = prevDisplayTags.find(dt => dt.text === tagText);
+        
+        if (existingTagWithSameText) {
+          // If a tag with the exact same text exists, reuse its full state (including ID and suggestions)
+          return { ...existingTagWithSameText };
+        } else {
+          // If no tag with the exact same text exists, this is effectively a new tag or a modified one.
+          // Generate a new unique ID and reset its specific state like suggestions.
+          return {
+            id: `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
+            text: tagText,
+            suggestions: [],
+            isLoadingSuggestions: false,
+            popoverOpen: false,
+          };
         }
-        
-        const existingTagById = prevDisplayTags[index] 
-          ? { ...prevDisplayTags[index], text: tagText, suggestions: [], isLoadingSuggestions: false, popoverOpen: false } 
-          : null;
-        
-        return existingTagById || {
-          id: `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
-          text: tagText,
-          suggestions: [],
-          isLoadingSuggestions: false,
-          popoverOpen: false,
-        };
       });
     });
   }, []);
@@ -294,7 +294,7 @@ export default function VisionaryBuilderPage() {
                   <Sparkles className="mr-2 h-5 w-5" /> Enhance Tags
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Click <X size={14} className="inline align-text-bottom"/> to remove (visible on hover).
+                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Hover for <X size={14} className="inline align-text-bottom text-destructive"/> to remove.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6">
@@ -466,4 +466,3 @@ export default function VisionaryBuilderPage() {
     </div>
   );
 }
-
