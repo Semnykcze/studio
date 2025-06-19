@@ -11,13 +11,13 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateRelatedTagsInputSchema = z.object({
+const GenerateRelatedTagsInputSchema = z.object({
   targetTag: z.string().describe('The specific keyword or phrase to generate suggestions for.'),
   fullPromptContext: z.string().optional().describe('The full prompt context, if available, to provide better suggestions.'),
 });
 export type GenerateRelatedTagsInput = z.infer<typeof GenerateRelatedTagsInputSchema>;
 
-export const GenerateRelatedTagsOutputSchema = z.object({
+const GenerateRelatedTagsOutputSchema = z.object({
   suggestedKeywords: z.array(z.string()).describe('An array of suggested keywords or short phrases.'),
 });
 export type GenerateRelatedTagsOutput = z.infer<typeof GenerateRelatedTagsOutputSchema>;
@@ -57,8 +57,8 @@ const generateRelatedTagsFlow = ai.defineFlow(
     if (!output) {
       return { suggestedKeywords: [] };
     }
-    // The prompt asks for a JSON array of strings.
     // The output schema will validate this.
     return output;
   }
 );
+
