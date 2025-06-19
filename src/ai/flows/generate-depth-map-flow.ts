@@ -18,7 +18,7 @@ const GenerateDepthMapInputSchema = z.object({
     .describe(
       "A photo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  allowNsfw: z.boolean().optional().default(false).describe('Whether to relax safety settings if the input image might be sensitive, though less relevant for depth maps.'),
+  allowNsfw: z.boolean().optional().default(false).describe('Whether to relax safety settings if the input image might be sensitive. This flag is maintained for API consistency but safety settings for depth maps are set to minimal restrictions by default within this flow.'),
 });
 export type GenerateDepthMapInput = z.infer<typeof GenerateDepthMapInputSchema>;
 
@@ -38,23 +38,16 @@ const generateDepthMapFlow = ai.defineFlow(
     outputSchema: GenerateDepthMapOutputSchema,
   },
   async (input) => {
-    let safetySettings: SafetySetting[] | undefined = [
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ];
-
-    if (input.allowNsfw) {
-      safetySettings = [
+    // Unconditionally set safety settings to BLOCK_NONE for depth map generation
+    const safetySettings: SafetySetting[] = [
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      ];
-    }
+        // Consider adding 'HARM_CATEGORY_CIVIC_INTEGRITY' if available and relevant, though typically less so for image generation.
+    ];
     
-    const promptText = `Analyze the provided image. Generate a new grayscale image that represents a depth map of the original. In this depth map, lighter areas should correspond to parts of the scene closer to the viewer, and darker areas should correspond to parts further away. The output must be the depth map image itself, without any additional text, labels, watermarks, or annotations.`;
+    const promptText = `Analyze the provided image. Generate a new grayscale image that represents a depth map of the original. In this depth map, lighter areas should correspond to parts of the scene closer to the viewer, and darker areas should correspond to parts further away. The output must be the depth map image itself, without any additional text, labels, watermarks, or annotations. Focus on accurately estimating the 3D scene structure and representing relative distances, similar to depth maps from specialized models.`;
 
     try {
       const {media, text} = await ai.generate({
@@ -74,11 +67,13 @@ const generateDepthMapFlow = ai.defineFlow(
         let errorMessage = 'Depth map generation failed to produce an image.';
         if (text) { 
             const lowerText = text.toLowerCase();
-            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create')) {
-                errorMessage = `The depth map could not be generated. Model response: "${text}". This may be due to safety policies or image content.`;
+            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create') || lowerText.includes('no valid candidates')) {
+                errorMessage = `The depth map could not be generated. Model response: "${text}". This may be due to safety policies, image content, or other restrictions.`;
             } else {
                 errorMessage = `Depth map generation failed. Model response: "${text}"`;
             }
+        } else if (error && (error as any).message && (error as any).message.includes('No valid candidates returned')) {
+             errorMessage = 'Depth map generation failed: No valid candidates returned from the model. This can be due to image content or internal model policies.';
         }
         throw new Error(errorMessage);
       }
@@ -91,9 +86,9 @@ const generateDepthMapFlow = ai.defineFlow(
       if (error.message) {
         const lowerMessage = error.message.toLowerCase();
         if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy')) {
-          finalErrorMessage = 'The depth map generation request was blocked by safety filters. Try a different image or adjust NSFW settings if applicable.';
+          finalErrorMessage = 'The depth map generation request was possibly affected by safety filters or content policies. Try a different image.';
         } else if (lowerMessage.includes('no valid candidates returned')) {
-          finalErrorMessage = 'Depth map generation failed: The AI model did not produce a valid image, possibly due to safety policies or the nature of the input image. Try a different image or adjust NSFW settings.';
+          finalErrorMessage = 'Depth map generation failed: The AI model did not produce a valid image, possibly due to the nature of the input image or internal model policies. Try a different image.';
         } else if (lowerMessage.includes('deadline_exceeded')) {
           finalErrorMessage = 'Depth map generation failed: The request to the AI model timed out. Please try again later.';
         }
