@@ -49,7 +49,7 @@ interface HistoryEntry {
     minWords: number;
     maxWords: number;
     outputLanguage: string;
-    photoSourceDescription?: string; // Changed from photoFileName
+    photoSourceDescription?: string; 
     allowNsfw: boolean;
     imageType: ImageTypeType;
     aspectRatio: AspectRatioType;
@@ -266,9 +266,8 @@ export default function VisionaryPrompterPage() {
     setImageFile(null);
     setImageUrlInput('');
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Clear file input
+      fileInputRef.current.value = ''; 
     }
-    // Reset AI-generated content related to the previous image
     setGeneratedPrompt(''); 
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
@@ -289,9 +288,9 @@ export default function VisionaryPrompterPage() {
         return;
       }
       
-      clearImageInputsAndPreview(); // Clear everything before setting new file
+      clearImageInputsAndPreview(); 
       setImageFile(file);
-      setImageUrlInput(''); // Clear URL input if a file is chosen
+      setImageUrlInput(''); 
       
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -308,41 +307,55 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsUrlLoading(true);
-    clearImageInputsAndPreview(); // Clear previous image/file and AI content
+    clearImageInputsAndPreview(); 
 
     try {
-      new URL(imageUrlInput); // Basic URL validation
-
-      const response = await fetch(imageUrlInput);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image. Status: ${response.status}`);
+      // Basic client-side check for URL format
+      try {
+        new URL(imageUrlInput);
+      } catch (_) {
+        throw new Error("Invalid URL format.");
       }
+
+      const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrlInput)}`;
+      const response = await fetch(proxyUrl);
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If parsing JSON fails, use status text
+        }
+        const serverErrorMessage = errorData?.error || `Failed to load image through proxy. Status: ${response.status} ${response.statusText}`;
+        throw new Error(serverErrorMessage);
+      }
+      
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image type (e.g., PNG, JPG).');
+        throw new Error('Proxied URL does not point to a valid image type.');
       }
 
       const blob = await response.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
-        setImageFile(null); // No actual File object from URL
+        setImageFile(null); 
         toast({ title: "Image loaded from URL successfully!" });
       };
       reader.onerror = () => {
-        throw new Error("Failed to read image data from URL.");
+        throw new Error("Failed to read proxied image data.");
       };
       reader.readAsDataURL(blob);
 
     } catch (error: any) {
-      console.error("Error loading image from URL:", error);
+      console.error("Error loading image from URL via proxy:", error);
       let description = "Could not load image from the URL.";
-      if (error.message.includes("Failed to fetch") || error.name === 'TypeError') { // TypeError can happen with CORS
-          description = "Network error or CORS issue. Ensure the URL is correct, publicly accessible, and allows direct fetching. For some images, you might need to download and upload them manually.";
-      } else if (error.message.includes("Invalid URL")) {
-          description = "The entered URL is not valid.";
-      } else if (error.message) {
+      if (error.message) {
           description = error.message;
+          if (error.message.includes("CORS") || error.message.includes("Failed to fetch")) {
+             description = "Network error while trying to fetch image via proxy. Ensure the URL is correct and publicly accessible. If the issue persists, the server hosting the image might be blocking our proxy."
+          }
       }
       toast({ variant: "destructive", title: "Error Loading Image from URL", description, duration: 7000 });
       setUploadedImage(null);
@@ -353,7 +366,7 @@ export default function VisionaryPrompterPage() {
 
 
   const handleGeneratePrompt = async () => {
-    if (!uploadedImage) { // Only check for uploadedImage (data URI)
+    if (!uploadedImage) { 
       toast({ variant: "destructive", title: "No image available", description: "Please upload an image or load from URL first." });
       return;
     }
@@ -533,6 +546,7 @@ export default function VisionaryPrompterPage() {
     let currentSeed = imageSeed;
     if (imageSeed.trim() === '') {
       currentSeed = Date.now().toString();
+      setImageSeed(currentSeed); 
     }
     const finalPromptForImageGeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
     await processImageGeneration(finalPromptForImageGeneration);
@@ -653,11 +667,9 @@ export default function VisionaryPrompterPage() {
   const loadFromHistory = (entry: HistoryEntry) => {
     clearImageInputsAndPreview();
     setUploadedImage(entry.imagePreviewUrl || null);
-    // ImageFile will be null if loaded from history, user needs to re-supply if it was file based
     setImageFile(null); 
     if (entry.params.photoSourceDescription?.startsWith("URL: ")) {
-      // Attempt to extract URL if possible, for display, but don't auto-load
-      // setImageUrlInput(...) // maybe not, could be confusing
+      // setImageUrlInput(...) 
     }
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -753,7 +765,7 @@ export default function VisionaryPrompterPage() {
                       role="button"
                       aria-label="Upload image from file"
                     >
-                      {uploadedImage && (imageFile || (!imageFile && !imageUrlInput)) ? ( // Show preview if uploadedImage is set and it's from a file or the source is ambiguous but an image is loaded
+                      {uploadedImage && (imageFile || (!imageFile && !imageUrlInput)) ? ( 
                         <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded"/>
                       ) : (
                         <div className="text-center p-4">
@@ -768,12 +780,12 @@ export default function VisionaryPrompterPage() {
                     <Input id="image-upload-file" type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageUpload} ref={fileInputRef} className="hidden" />
                   </TabsContent>
                   <TabsContent value="url" className="mt-3 space-y-2">
-                     {uploadedImage && !imageFile && imageUrlInput && activeImageInputTab === 'url' && ( // Show preview specifically if loaded from URL and URL tab is active
+                     {uploadedImage && !imageFile && imageUrlInput && activeImageInputTab === 'url' && ( 
                         <div className="aspect-video w-full rounded-md border-2 border-primary/50 flex items-center justify-center relative overflow-hidden mb-2">
                            <Image src={uploadedImage} alt="URL preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="url preview"/>
                         </div>
                       )}
-                     {!uploadedImage && activeImageInputTab === 'url' && ( // Placeholder for URL tab if no image yet
+                     {((!uploadedImage && activeImageInputTab === 'url') || (uploadedImage && imageFile && activeImageInputTab === 'url')) && ( 
                         <div className="aspect-video w-full rounded-md border-2 border-dashed border-input bg-muted/50 flex items-center justify-center">
                             <LinkIcon className="mx-auto h-10 w-10 text-muted-foreground" />
                         </div>
@@ -794,9 +806,9 @@ export default function VisionaryPrompterPage() {
                     </Button>
                   </TabsContent>
                 </Tabs>
-                {uploadedImage && ( // General preview if any image is loaded, positioned outside tabs if preferred
-                    activeImageInputTab === 'file' && !imageFile && imageUrlInput ? null : // Avoid double preview if URL tab was active then file tab clicked
-                    (activeImageInputTab === 'url' && (imageFile || (!imageFile && !imageUrlInput))) ? null : // Avoid double preview if file tab was active then URL tab clicked
+                {uploadedImage && ( 
+                    activeImageInputTab === 'file' && !imageFile && imageUrlInput ? null : 
+                    (activeImageInputTab === 'url' && (imageFile || (!imageFile && !imageUrlInput))) ? null : 
                     <div className="mt-2 text-xs text-muted-foreground">
                       {imageFile ? `File: ${imageFile.name}` : imageUrlInput.trim() && uploadedImage ? `From URL: ${imageUrlInput.substring(0, 40)}...` : "Ready to configure"}
                     </div>
@@ -952,7 +964,7 @@ export default function VisionaryPrompterPage() {
                         className="h-7 px-1.5 text-xs" 
                         aria-label="Try Generate Image"
                     >
-                        {isImageGenerating ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
+                        {isImageGenerating && !editImagePrompt ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
                         <span className="ml-1 hidden sm:inline">Generate ({IMAGE_GENERATION_COST} Cr)</span>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
@@ -1192,7 +1204,7 @@ export default function VisionaryPrompterPage() {
                     <div className="flex items-center space-x-3 w-full">
                       <div className="w-12 h-10 md:w-16 md:h-12 relative rounded overflow-hidden border shrink-0 bg-muted group-hover:border-primary/30 transition-colors">
                         {entry.imagePreviewUrl ? (
-                           <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview" />
+                           <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview"/>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/70" />
@@ -1259,5 +1271,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
-    
