@@ -12,5 +12,6 @@ import '@/ai/flows/visionary-chatter-flow.ts';
 import '@/ai/flows/generate-image-from-prompt-flow.ts';
 import '@/ai/flows/generate-related-tags-flow.ts';
 import '@/ai/flows/transform-prompt-flow.ts';
+import '@/ai/flows/generate-canny-edge-map-flow.ts';
 
 

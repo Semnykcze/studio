@@ -24,6 +24,7 @@ import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generat
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 import { generateImageFromPrompt, type GenerateImageFromPromptInput } from '@/ai/flows/generate-image-from-prompt-flow';
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
+import { generateCannyEdgeMap, type GenerateCannyEdgeMapInput, type GenerateCannyEdgeMapOutput } from '@/ai/flows/generate-canny-edge-map-flow';
 
 
 import { LoadingSpinner } from '@/components/loading-spinner';
@@ -31,7 +32,8 @@ import {
   Copy, Check, Image as ImageIconLucide, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, LightbulbIcon, FileTextIcon, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle
+  Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle,
+  GitCommitHorizontal 
 } from 'lucide-react'; // Renamed icons to avoid conflict
 
 // Types moved to top for better organization or potentially to a types file later
@@ -77,6 +79,7 @@ const IMAGE_GENERATION_COST = 10;
 const DEPTH_MAP_COST = 1;
 const STYLE_ANALYSIS_COST = 1;
 const PROMPT_TRANSFORMATION_COST = 1;
+const CANNY_EDGE_MAP_COST = 1;
 
 function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -128,6 +131,9 @@ export default function VisionaryPrompterPage() {
 
   const [transformationInstruction, setTransformationInstruction] = useState<string>('');
   const [isTransformingPrompt, setIsTransformingPrompt] = useState<boolean>(false);
+
+  const [generatedCannyEdgeMap, setGeneratedCannyEdgeMap] = useState<string | null>(null);
+  const [isCannyEdgeMapLoading, setIsCannyEdgeMapLoading] = useState<boolean>(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -317,6 +323,7 @@ export default function VisionaryPrompterPage() {
     // These affect other parts of the page, so they remain here
     setGeneratedPrompt(''); 
     setGeneratedDepthMap(null); 
+    setGeneratedCannyEdgeMap(null);
     setImageStyleAnalysis(null);
     setGeneratedImageDataUri(null); 
     setEditImagePrompt('');
@@ -723,6 +730,43 @@ export default function VisionaryPrompterPage() {
     }
   };
 
+  const handleGenerateCannyEdgeMap = async () => {
+    if (!uploadedImage) {
+      toast({ variant: "destructive", title: "No image for Canny edge map generation." }); return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." }); return;
+    }
+    if (credits === null || credits < CANNY_EDGE_MAP_COST) {
+      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${CANNY_EDGE_MAP_COST} credit for Canny edge map generation.` }); return;
+    }
+
+    setIsCannyEdgeMapLoading(true);
+    setGeneratedCannyEdgeMap(null);
+    try {
+      const input: GenerateCannyEdgeMapInput = { 
+        photoDataUri: uploadedImage,
+      };
+      const result: GenerateCannyEdgeMapOutput = await generateCannyEdgeMap(input);
+      setGeneratedCannyEdgeMap(result.cannyEdgeMapDataUri);
+
+      const newCredits = credits - CANNY_EDGE_MAP_COST;
+      setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      toast({ title: "Canny edge map generated successfully!" });
+
+    } catch (error) {
+      let desc = "Unknown error during Canny edge map generation.";
+      if (error instanceof Error) desc = error.message;
+      else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message:string}).message);
+      toast({ variant: "destructive", title: "Canny edge map generation failed", description: desc });
+    } finally {
+      setIsCannyEdgeMapLoading(false);
+    }
+  };
+
+
   const handleAnalyzeImageStyle = async () => {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for style analysis" }); return;
@@ -857,7 +901,7 @@ export default function VisionaryPrompterPage() {
     setMaxWords(newMax);
   };
 
-  const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating || isTransformingPrompt;
+  const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating || isTransformingPrompt || isCannyEdgeMapLoading;
 
 
   return (
@@ -879,8 +923,7 @@ export default function VisionaryPrompterPage() {
           
           <ImagePromptConfigCard
             uploadedImage={uploadedImage}
-            setUploadedImage={setUploadedImage} // Pass setter if needed by child for direct manipulation, though handlers are better
-            imageFile={imageFile} // Pass for display/info if needed
+            imageFile={imageFile}
             imageUrlInput={imageUrlInput}
             setImageUrlInput={setImageUrlInput}
             activeImageInputTab={activeImageInputTab}
@@ -909,7 +952,7 @@ export default function VisionaryPrompterPage() {
             
             minWords={minWords}
             maxWords={maxWords}
-            onWordCountChange={handleWordCountChange} // Pass the specific handler
+            onWordCountChange={handleWordCountChange}
             OVERALL_MIN_WORDS={OVERALL_MIN_WORDS}
             OVERALL_MAX_WORDS={OVERALL_MAX_WORDS}
 
@@ -920,7 +963,6 @@ export default function VisionaryPrompterPage() {
             onLoadImageFromUrl={handleLoadImageFromUrl}
             onGeneratePrompt={handleGeneratePrompt}
             
-            // For image preview text in child component
             getPreviewText={() => {
                 if (imageFile) return `File: ${imageFile.name}`;
                 if (imageUrlInput.trim() && uploadedImage) return `From URL: ${imageUrlInput.substring(0, 40)}...`;
@@ -1208,6 +1250,34 @@ export default function VisionaryPrompterPage() {
               {credits !== null && credits < DEPTH_MAP_COST && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
             </CardContent>
           </Card>
+
+          <Card className="shadow-md">
+            <CardHeader className="border-b">
+              <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
+                <GitCommitHorizontal className="mr-2 h-5 w-5" /> Edge Detection (Canny)
+              </CardTitle>
+              <CardDescription className="text-sm">Generate a Canny edge map for ControlNet. ({CANNY_EDGE_MAP_COST} Credit)</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6 relative">
+              <Button onClick={handleGenerateCannyEdgeMap} disabled={anyLoading || !uploadedImage || credits === null || credits < CANNY_EDGE_MAP_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < CANNY_EDGE_MAP_COST ? "Generate Canny Edge Map (No credits left)" : "Generate Canny Edge Map"}>
+                {isCannyEdgeMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <GitCommitHorizontal className="mr-1.5 h-4 w-4" />} Generate Canny Edges
+              </Button>
+              {!uploadedImage && !isCannyEdgeMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable Canny edge map generation.</p>)}
+              {isCannyEdgeMapLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
+                  <LoadingSpinner size="1.5rem" message="Generating Canny edges..." />
+                </div>
+              )}
+              {generatedCannyEdgeMap && !isCannyEdgeMapLoading && (
+                <div className="aspect-video w-full relative rounded-md overflow-hidden border mt-2 animate-fade-in-fast">
+                  <Image src={generatedCannyEdgeMap} alt="Generated Canny edge map" layout="fill" objectFit="contain" data-ai-hint="canny edge map"/>
+                </div>
+              )}
+              {credits !== null && credits < CANNY_EDGE_MAP_COST && !anyLoading && uploadedImage && !isCannyEdgeMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for Canny edge map.</p>)}
+            </CardContent>
+          </Card>
+
+
         </div>
       </div>
 
