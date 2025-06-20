@@ -7,15 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Keep for other uses if any
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Keep for other uses if any
 import { useToast } from '@/hooks/use-toast';
+
+import { ImagePromptConfigCard } from '@/components/visionary-prompter/ImagePromptConfigCard';
+
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
@@ -28,19 +28,19 @@ import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform
 
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
-  UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
+  Copy, Check, Image as ImageIconLucide, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
-  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle
-} from 'lucide-react';
+  Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, LightbulbIcon, FileTextIcon, Maximize, Eye, EyeOff, Brush,
+  Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle
+} from 'lucide-react'; // Renamed icons to avoid conflict
 
-type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
-type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
-type ImageTypeType = 'image' | 'photography' | 'icon' | 'logo';
-type AspectRatioType = '1:1' | 'portrait' | 'landscape';
+// Types moved to top for better organization or potentially to a types file later
+export type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
+export type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
+export type ImageTypeType = 'image' | 'photography' | 'icon' | 'logo';
+export type AspectRatioType = '1:1' | 'portrait' | 'landscape';
 
-
-interface HistoryEntry {
+export interface HistoryEntry {
   id: string;
   timestamp: string;
   imagePreviewUrl?: string | null; 
@@ -58,7 +58,7 @@ interface HistoryEntry {
   generatedPrompt: string;
 }
 
-interface SavedPromptEntry {
+export interface SavedPromptEntry {
   id: string;
   name: string;
   promptText: string;
@@ -261,7 +261,7 @@ export default function VisionaryPrompterPage() {
     }
   }, [promptLibrary]);
 
-
+  // Constant arrays for select options
   const languageOptions: { value: string; label: string; icon?: React.ElementType }[] = [
     { value: 'English', label: 'English', icon: Globe },
     { value: 'Czech', label: 'Čeština', icon: Globe },
@@ -274,7 +274,7 @@ export default function VisionaryPrompterPage() {
   ];
 
   const promptStyleOptions: { value: PromptStyleType; label: string; icon: React.ElementType }[] = [
-    { value: 'detailed', label: 'Detailed', icon: FileText },
+    { value: 'detailed', label: 'Detailed', icon: FileTextIcon },
     { value: 'creative', label: 'Creative', icon: Sparkles },
     { value: 'keywords', label: 'Keywords', icon: SlidersHorizontal },
     { value: 'cinematic', label: 'Cinematic', icon: Film },
@@ -283,28 +283,29 @@ export default function VisionaryPrompterPage() {
   ];
 
   const targetModelOptions: { value: TargetModelType; label: string; icon: React.ElementType}[] = [
-      { value: 'Flux.1 Dev', label: 'Flux.1 Dev', icon: Lightbulb },
-      { value: 'Midjourney', label: 'Midjourney', icon: Lightbulb },
-      { value: 'Stable Diffusion', label: 'Stable Diffusion', icon: Lightbulb },
-      { value: 'DALL-E 3', label: 'DALL-E 3', icon: Lightbulb },
-      { value: 'Leonardo AI', label: 'Leonardo AI', icon: Lightbulb },
-      { value: 'Imagen4', label: 'Imagen 4', icon: Lightbulb },
-      { value: 'Imagen3', label: 'Imagen 3', icon: Lightbulb },
-      { value: 'General Text', label: 'General Text', icon: FileText },
+      { value: 'Flux.1 Dev', label: 'Flux.1 Dev', icon: LightbulbIcon },
+      { value: 'Midjourney', label: 'Midjourney', icon: LightbulbIcon },
+      { value: 'Stable Diffusion', label: 'Stable Diffusion', icon: LightbulbIcon },
+      { value: 'DALL-E 3', label: 'DALL-E 3', icon: LightbulbIcon },
+      { value: 'Leonardo AI', label: 'Leonardo AI', icon: LightbulbIcon },
+      { value: 'Imagen4', label: 'Imagen 4', icon: LightbulbIcon },
+      { value: 'Imagen3', label: 'Imagen 3', icon: LightbulbIcon },
+      { value: 'General Text', label: 'General Text', icon: FileTextIcon },
   ];
   
   const imageTypeOptions: { value: ImageTypeType; label: string; icon: React.ElementType }[] = [
-    { value: 'image', label: 'General Image', icon: ImageIcon },
+    { value: 'image', label: 'General Image', icon: ImageIconLucide },
     { value: 'photography', label: 'Photography', icon: Camera },
     { value: 'icon', label: 'Icon / Graphic', icon: AppWindow },
     { value: 'logo', label: 'Logo / Symbol', icon: PencilRuler },
   ];
 
   const aspectRatioOptions: { value: AspectRatioType; label: string; icon: React.ElementType }[] = [
-    { value: '1:1', label: 'Square (1:1)', icon: Square },
-    { value: 'portrait', label: 'Portrait (e.g., 2:3, 9:16)', icon: RectangleVertical },
-    { value: 'landscape', label: 'Landscape (e.g., 3:2, 16:9)', icon: RectangleHorizontal },
+    { value: '1:1', label: 'Square (1:1)', icon: SquareIcon },
+    { value: 'portrait', label: 'Portrait (e.g., 2:3, 9:16)', icon: RectangleVerticalIcon },
+    { value: 'landscape', label: 'Landscape (e.g., 3:2, 16:9)', icon: RectangleHorizontalIcon },
   ];
+
 
   const clearImageInputsAndPreview = () => {
     setUploadedImage(null);
@@ -313,6 +314,7 @@ export default function VisionaryPrompterPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''; 
     }
+    // These affect other parts of the page, so they remain here
     setGeneratedPrompt(''); 
     setGeneratedDepthMap(null); 
     setImageStyleAnalysis(null);
@@ -857,14 +859,6 @@ export default function VisionaryPrompterPage() {
 
   const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating || isTransformingPrompt;
 
-  const renderSelectTrigger = (icon: React.ElementType, placeholder: string, value?: string) => (
-    <SelectTrigger className="w-full text-sm md:text-base pl-3 pr-2 py-2 h-10 data-[placeholder]:text-muted-foreground">
-       <div className="flex items-center gap-2">
-        {React.createElement(icon, { className: "h-4 w-4 text-primary/80"})}
-        <SelectValue placeholder={placeholder}>{value}</SelectValue>
-      </div>
-    </SelectTrigger>
-  );
 
   return (
     <div className="container mx-auto p-4 sm:p-6 md:p-8 print:p-0">
@@ -876,222 +870,70 @@ export default function VisionaryPrompterPage() {
           </h1>
         </div>
         <p className="text-base sm:text-md md:text-lg text-muted-foreground max-w-xl mx-auto">
-          Upload an image, configure parameters, and let AI craft the perfect prompt & analyze its style.
+          Upload an image, configure parameters, and let AI craft the perfect prompt &amp; analyze its style.
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-2 space-y-6 md:space-y-8">
-          <Card className="shadow-md">
-            <CardHeader className="border-b">
-                <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
-                <Settings2 className="mr-2 h-5 w-5" />
-                Image & Prompt Configuration
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <Tabs value={activeImageInputTab} onValueChange={setActiveImageInputTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 h-10">
-                    <TabsTrigger value="file" className="text-xs sm:text-sm data-[state=active]:shadow-sm">
-                      <FileUp className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" /> Upload File
-                    </TabsTrigger>
-                    <TabsTrigger value="url" className="text-xs sm:text-sm data-[state=active]:shadow-sm">
-                      <LinkIcon className="mr-1.5 h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" /> From URL
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="file" className="mt-3">
-                    <div
-                      className={`aspect-video w-full rounded-md border-2 border-dashed transition-all duration-300 ease-in-out
-                        ${uploadedImage && activeImageInputTab === 'file' ? 'border-primary/50 hover:border-primary' : 'border-input hover:border-primary/70 bg-muted/50'} 
-                        flex items-center justify-center cursor-pointer group relative overflow-hidden`}
-                      onClick={() => fileInputRef.current?.click()}
-                      onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label="Upload image from file"
-                    >
-                      {uploadedImage && (imageFile || (!imageFile && !imageUrlInput)) ? ( 
-                        <Image src={uploadedImage} alt="Uploaded preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="user uploaded"/>
-                      ) : (
-                        <div className="text-center p-4">
-                          <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            <span className="font-semibold text-primary">Click or Drag & Drop</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, GIF, WEBP (Max 50MB)</p>
-                        </div>
-                      )}
-                    </div>
-                    <Input id="image-upload-file" type="file" accept="image/png, image/jpeg, image/gif, image/webp" onChange={handleImageUpload} ref={fileInputRef} className="hidden" />
-                  </TabsContent>
-                  <TabsContent value="url" className="mt-3 space-y-2">
-                     {uploadedImage && !imageFile && imageUrlInput && activeImageInputTab === 'url' && ( 
-                        <div className="aspect-video w-full rounded-md border-2 border-primary/50 flex items-center justify-center relative overflow-hidden mb-2">
-                           <Image src={uploadedImage} alt="URL preview" layout="fill" objectFit="contain" className="p-0.5" data-ai-hint="url preview"/>
-                        </div>
-                      )}
-                     {((!uploadedImage && activeImageInputTab === 'url') || (uploadedImage && imageFile && activeImageInputTab === 'url')) && ( 
-                        <div className="aspect-video w-full rounded-md border-2 border-dashed border-input bg-muted/50 flex items-center justify-center">
-                            <LinkIcon className="mx-auto h-10 w-10 text-muted-foreground" />
-                        </div>
-                      )}
-                    <Label htmlFor="image-url-input" className="text-xs font-medium">Image URL</Label>
-                    <Input 
-                      id="image-url-input" 
-                      type="url" 
-                      placeholder="https://example.com/image.png" 
-                      value={imageUrlInput}
-                      onChange={(e) => setImageUrlInput(e.target.value)}
-                      disabled={anyLoading}
-                      className="h-9 text-sm"
-                    />
-                    <Button onClick={handleLoadImageFromUrl} disabled={anyLoading || !imageUrlInput.trim()} className="w-full text-sm py-2 h-9" variant="outline">
-                      {isUrlLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                      Load Image from URL
-                    </Button>
-                  </TabsContent>
-                </Tabs>
-                {uploadedImage && ( 
-                    activeImageInputTab === 'file' && !imageFile && imageUrlInput ? null : 
-                    (activeImageInputTab === 'url' && (imageFile || (!imageFile && !imageUrlInput))) ? null : 
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {imageFile ? `File: ${imageFile.name}` : imageUrlInput.trim() && uploadedImage ? `From URL: ${imageUrlInput.substring(0, 40)}...` : "Ready to configure"}
-                    </div>
-                 )}
-              </div>
+          
+          <ImagePromptConfigCard
+            uploadedImage={uploadedImage}
+            setUploadedImage={setUploadedImage} // Pass setter if needed by child for direct manipulation, though handlers are better
+            imageFile={imageFile} // Pass for display/info if needed
+            imageUrlInput={imageUrlInput}
+            setImageUrlInput={setImageUrlInput}
+            activeImageInputTab={activeImageInputTab}
+            setActiveImageInputTab={setActiveImageInputTab}
+            isUrlLoading={isUrlLoading}
+            fileInputRef={fileInputRef}
+            anyLoading={anyLoading}
+            credits={credits}
+            
+            targetModelOptions={targetModelOptions}
+            imageTypeOptions={imageTypeOptions}
+            aspectRatioOptions={aspectRatioOptions}
+            languageOptions={languageOptions}
+            promptStyleOptions={promptStyleOptions}
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="target-model-select" className="text-xs font-medium mb-1 block">Target AI Model</Label>
-                  <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
-                    {renderSelectTrigger(Lightbulb, "Select target model", selectedTargetModel)}
-                    <SelectContent>
-                      {targetModelOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="image-type-select" className="text-xs font-medium mb-1 block">Desired Image Type</Label>
-                  <Select value={selectedImageType} onValueChange={(value: string) => setSelectedImageType(value as ImageTypeType)} disabled={anyLoading}>
-                    {renderSelectTrigger(ImageIcon, "Select image type", imageTypeOptions.find(opt => opt.value === selectedImageType)?.label)}
-                    <SelectContent>
-                      {imageTypeOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            selectedTargetModel={selectedTargetModel}
+            setSelectedTargetModel={setSelectedTargetModel}
+            selectedImageType={selectedImageType}
+            setSelectedImageType={setSelectedImageType}
+            selectedAspectRatio={selectedAspectRatio}
+            setSelectedAspectRatio={setSelectedAspectRatio}
+            selectedLanguage={selectedLanguage}
+            setSelectedLanguage={setSelectedLanguage}
+            selectedPromptStyle={selectedPromptStyle}
+            setSelectedPromptStyle={setSelectedPromptStyle}
+            
+            minWords={minWords}
+            maxWords={maxWords}
+            onWordCountChange={handleWordCountChange} // Pass the specific handler
+            OVERALL_MIN_WORDS={OVERALL_MIN_WORDS}
+            OVERALL_MAX_WORDS={OVERALL_MAX_WORDS}
 
-                <div>
-                  <Label htmlFor="aspect-ratio-select" className="text-xs font-medium mb-1 block">Desired Aspect Ratio</Label>
-                  <Select value={selectedAspectRatio} onValueChange={(value: string) => setSelectedAspectRatio(value as AspectRatioType)} disabled={anyLoading}>
-                    {renderSelectTrigger(Square, "Select aspect ratio", aspectRatioOptions.find(opt => opt.value === selectedAspectRatio)?.label)}
-                    <SelectContent>
-                      {aspectRatioOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            allowNsfw={allowNsfw}
+            setAllowNsfw={setAllowNsfw}
 
-                <div>
-                  <Label htmlFor="language-select" className="text-xs font-medium mb-1 block">Output Language</Label>
-                  <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
-                    {renderSelectTrigger(Languages, "Select language", languageOptions.find(l => l.value === selectedLanguage)?.label)}
-                    <SelectContent>
-                      {languageOptions.map(lang => (
-                        <SelectItem key={lang.value} value={lang.value} className="text-sm">
-                           <div className="flex items-center gap-2">
-                            {lang.icon && React.createElement(lang.icon, { className: "h-4 w-4 opacity-70"})} {lang.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            onImageUpload={handleImageUpload}
+            onLoadImageFromUrl={handleLoadImageFromUrl}
+            onGeneratePrompt={handleGeneratePrompt}
+            
+            // For image preview text in child component
+            getPreviewText={() => {
+                if (imageFile) return `File: ${imageFile.name}`;
+                if (imageUrlInput.trim() && uploadedImage) return `From URL: ${imageUrlInput.substring(0, 40)}...`;
+                return "Ready to configure";
+            }}
+          />
 
-                <div>
-                  <Label htmlFor="prompt-style-select" className="text-xs font-medium mb-1 block">Prompt Style</Label>
-                  <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
-                     {renderSelectTrigger(Paintbrush, "Select prompt style", promptStyleOptions.find(p => p.value === selectedPromptStyle)?.label)}
-                    <SelectContent>
-                      {promptStyleOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-sm">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(opt.icon, { className: "h-4 w-4 opacity-70"})} {opt.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="word-count-slider" className="text-xs font-medium">Prompt Word Count</Label>
-                        <Badge variant="secondary" className="text-xs font-medium text-primary px-1.5 py-0.5">{minWords} - {maxWords} words</Badge>
-                    </div>
-                    <Slider
-                        id="word-count-slider"
-                        min={OVERALL_MIN_WORDS} max={OVERALL_MAX_WORDS} step={5}
-                        value={[minWords, maxWords]} onValueChange={handleWordCountChange}
-                        disabled={anyLoading}
-                        aria-label={`Word count range slider, current range ${minWords} to ${maxWords} words.`}
-                    />
-                     <p className="text-xs text-muted-foreground pt-0.5">Range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
-                </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Switch
-                    id="allow-nsfw-config-switch"
-                    checked={allowNsfw}
-                    onCheckedChange={setAllowNsfw}
-                    disabled={anyLoading}
-                    aria-label="Toggle to allow potentially NSFW content in prompts"
-                  />
-                  <Label htmlFor="allow-nsfw-config-switch" className="text-xs text-muted-foreground cursor-pointer">
-                    Allow Potentially NSFW Content
-                  </Label>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="p-4 md:p-6 border-t">
-              <Button
-                onClick={handleGeneratePrompt}
-                disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-                className="w-full text-sm py-2.5 rounded-md font-semibold"
-                size="lg"
-                aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
-              >
-                {isLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                Generate Visionary Prompt
-              </Button>
-            </CardFooter>
-             {credits !== null && credits <= 0 && !anyLoading && (
-              <p className="text-xs text-center text-destructive pb-4 px-6 -mt-2">You have run out of credits.</p>
-            )}
-          </Card>
 
           {(generatedPrompt || isLoading) && (
             <Card className="shadow-md">
               <CardHeader className="border-b">
                 <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
-                  <Lightbulb className="mr-2 h-5 w-5" /> AI Generated Prompt
+                  <LightbulbIcon className="mr-2 h-5 w-5" /> AI Generated Prompt
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-6 relative">
@@ -1186,7 +1028,7 @@ export default function VisionaryPrompterPage() {
              <Card className="shadow-md mt-6 md:mt-8">
                 <CardHeader className="border-b flex flex-row items-center justify-between py-3 px-4 md:py-4 md:px-6">
                     <div className="flex items-center">
-                        <ImageIcon className="mr-2 h-5 w-5 text-primary" /> 
+                        <ImageIconLucide className="mr-2 h-5 w-5 text-primary" /> 
                         <CardTitle className="text-base md:text-lg font-headline text-primary">
                             {isImageGenerating && !generatedImageDataUri ? "Generating Image..." : "Generated Image"}
                         </CardTitle>
@@ -1391,7 +1233,7 @@ export default function VisionaryPrompterPage() {
                            <Image src={entry.imagePreviewUrl} alt="History item preview" layout="fill" objectFit="cover" data-ai-hint="history preview"/>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/70" />
+                            <ImageIconLucide className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground/70" />
                           </div>
                         )}
                       </div>
@@ -1421,7 +1263,7 @@ export default function VisionaryPrompterPage() {
                       </Button>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => loadFromHistory(entry)} disabled={anyLoading} className="text-xs h-8 px-2">
-                      <DownloadCloud className="mr-1.5 h-3.5 w-3.5" /> Load Settings & Prompt
+                      <DownloadCloud className="mr-1.5 h-3.5 w-3.5" /> Load Settings &amp; Prompt
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
