@@ -30,7 +30,7 @@ import {
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -57,8 +57,16 @@ interface HistoryEntry {
   generatedPrompt: string;
 }
 
+interface SavedPromptEntry {
+  id: string;
+  name: string;
+  promptText: string;
+  timestamp: string;
+}
+
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
+const LOCAL_STORAGE_PROMPT_LIBRARY_KEY = 'visionaryPrompterLibrary';
 const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId';
 const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_';
 const INITIAL_CREDITS = 10;
@@ -97,6 +105,7 @@ export default function VisionaryPrompterPage() {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
+  const [promptLibrary, setPromptLibrary] = useState<SavedPromptEntry[]>([]);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
@@ -196,6 +205,21 @@ export default function VisionaryPrompterPage() {
         console.error("Failed to remove corrupted history from localStorage:", removeError);
       }
     }
+
+    try {
+        const storedLibraryJson = localStorage.getItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY);
+        if (storedLibraryJson) {
+            const storedLibrary = JSON.parse(storedLibraryJson) as SavedPromptEntry[];
+            setPromptLibrary(storedLibrary);
+        }
+    } catch (error) {
+        console.error("Error loading prompt library from localStorage:", error);
+        try {
+            localStorage.removeItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY);
+        } catch (removeError) {
+            console.error("Failed to remove corrupted prompt library from localStorage:", removeError);
+        }
+    }
   }, []);
 
   useEffect(() => {
@@ -217,6 +241,20 @@ export default function VisionaryPrompterPage() {
       console.error("Error saving history to localStorage:", error);
     }
   }, [generationHistory]);
+
+  useEffect(() => {
+    try {
+        if (promptLibrary.length > 0) {
+            localStorage.setItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY, JSON.stringify(promptLibrary));
+        } else {
+            if (localStorage.getItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY)) {
+              localStorage.removeItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY);
+            }
+        }
+    } catch (error) {
+        console.error("Error saving prompt library to localStorage:", error);
+    }
+  }, [promptLibrary]);
 
 
   const languageOptions: { value: string; label: string; icon?: React.ElementType }[] = [
@@ -312,7 +350,6 @@ export default function VisionaryPrompterPage() {
     clearImageInputsAndPreview(); 
 
     try {
-      // Basic client-side check for URL format
       try {
         new URL(imageUrlInput);
       } catch (_) {
@@ -327,7 +364,6 @@ export default function VisionaryPrompterPage() {
         try {
           errorData = await response.json();
         } catch (e) {
-          // If parsing JSON fails, use status text
         }
         const serverErrorMessage = errorData?.error || `Failed to load image through proxy. Status: ${response.status} ${response.statusText}`;
         throw new Error(serverErrorMessage);
@@ -581,7 +617,7 @@ export default function VisionaryPrompterPage() {
   };
 
 
-  const handleSaveImage = () => {
+  const handleSaveGeneratedImage = () => {
     if (!generatedImageDataUri) {
       toast({ variant: "destructive", title: "No image to save" });
       return;
@@ -613,7 +649,7 @@ export default function VisionaryPrompterPage() {
     try {
       const input: GenerateDepthMapInput = { 
         photoDataUri: uploadedImage,
-        allowNsfw: allowNsfw // Pass NSFW setting
+        allowNsfw: allowNsfw 
       };
       const result = await generateDepthMap(input);
       setGeneratedDepthMap(result.depthMapDataUri);
@@ -662,13 +698,13 @@ export default function VisionaryPrompterPage() {
     }
   };
 
-  const handleCopyPrompt = (textToCopy: string) => {
+  const handleCopyText = (textToCopy: string, context: string = "Prompt") => {
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy)
       .then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-        toast({ title: "Prompt copied!" });
+        if (context === "Prompt") setIsCopied(true);
+        setTimeout(() => { if (context === "Prompt") setIsCopied(false); }, 2000);
+        toast({ title: `${context} copied!` });
       })
       .catch(() => toast({ variant: "destructive", title: "Copy failed" }));
   };
@@ -684,7 +720,6 @@ export default function VisionaryPrompterPage() {
     setUploadedImage(entry.imagePreviewUrl || null);
     setImageFile(null); 
     if (entry.params.photoSourceDescription?.startsWith("URL: ")) {
-      // setImageUrlInput(...) 
     }
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
@@ -703,6 +738,51 @@ export default function VisionaryPrompterPage() {
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  
+  const handleSaveGeneratedPrompt = () => {
+    if (!generatedPrompt.trim()) {
+      toast({ variant: "destructive", title: "No prompt to save", description: "Please generate a prompt first." });
+      return;
+    }
+    const name = window.prompt("Enter a name for this prompt:", `Prompt ${new Date().toLocaleTimeString()}`);
+    if (name === null || name.trim() === "") {
+      toast({ variant: "default", title: "Save Canceled", description: "Prompt was not saved." });
+      return;
+    }
+    const newSavedPrompt: SavedPromptEntry = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 15),
+      name: name.trim(),
+      promptText: generatedPrompt,
+      timestamp: new Date().toLocaleString(),
+    };
+    setPromptLibrary(prev => [newSavedPrompt, ...prev]);
+    toast({ title: "Prompt Saved!", description: `"${name.trim()}" added to library.` });
+  };
+
+  const handleLoadPromptFromLibrary = (promptId: string) => {
+    const promptToLoad = promptLibrary.find(p => p.id === promptId);
+    if (promptToLoad) {
+      setGeneratedPrompt(promptToLoad.promptText);
+      toast({ title: "Prompt Loaded", description: `"${promptToLoad.name}" loaded into editor.` });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleDeletePromptFromLibrary = (promptId: string) => {
+    const promptToDelete = promptLibrary.find(p => p.id === promptId);
+    if (promptToDelete && window.confirm(`Are you sure you want to delete "${promptToDelete.name}"?`)) {
+        setPromptLibrary(prev => prev.filter(p => p.id !== promptId));
+        toast({ title: "Prompt Deleted", description: `"${promptToDelete.name}" removed from library.` });
+    }
+  };
+
+  const handleClearPromptLibrary = () => {
+    if (window.confirm("Are you sure you want to delete ALL saved prompts from the library? This cannot be undone.")) {
+        setPromptLibrary([]);
+        toast({ title: "Prompt Library Cleared" });
+    }
+  };
+
 
   const handleSessionIdChange = () => {
     if (newSessionIdInput.trim() === "") {
@@ -991,17 +1071,17 @@ export default function VisionaryPrompterPage() {
                     <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Translate Prompt">
                         {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Translate</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleCopyPrompt(generatedPrompt)} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Copy Prompt">
+                    <Button variant="ghost" size="sm" onClick={() => handleCopyText(generatedPrompt, "Prompt")} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Copy Prompt">
                         {isCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Copy</span>
                     </Button>
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => toast({ title: "Coming Soon!", description: "Save prompt functionality will be implemented in a future update.", duration: 3000 })}
-                        title="Save Prompt (Coming Soon)"
+                        onClick={handleSaveGeneratedPrompt}
+                        title="Save current prompt to library"
                         disabled={anyLoading || !generatedPrompt}
                         className="h-7 px-1.5 text-xs"
-                        aria-label="Save Prompt"
+                        aria-label="Save Prompt to Library"
                     >
                         <Save className="h-3.5 w-3.5" /> <span className="ml-1 hidden sm:inline">Save</span>
                     </Button>
@@ -1073,7 +1153,7 @@ export default function VisionaryPrompterPage() {
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                onClick={handleSaveImage} 
+                                onClick={handleSaveGeneratedImage} 
                                 title="Save Image" 
                                 disabled={isImageGenerating || !generatedImageDataUri} 
                                 className="h-7 px-1.5 text-xs" 
@@ -1121,7 +1201,6 @@ export default function VisionaryPrompterPage() {
                 </CardContent>
             </Card>
           )}
-
         </div>
 
         <div className="lg:col-span-1 space-y-6 md:space-y-8">
@@ -1253,7 +1332,7 @@ export default function VisionaryPrompterPage() {
                     </div>
                     <div className="relative">
                       <Textarea value={entry.generatedPrompt} readOnly className="min-h-[70px] text-xs bg-background" />
-                      <Button variant="ghost" size="icon" onClick={() => handleCopyPrompt(entry.generatedPrompt)} className="absolute top-1 right-1 text-muted-foreground hover:text-primary h-6 w-6" aria-label="Copy prompt from history" disabled={anyLoading}>
+                      <Button variant="ghost" size="icon" onClick={() => handleCopyText(entry.generatedPrompt, "History Prompt")} className="absolute top-1 right-1 text-muted-foreground hover:text-primary h-6 w-6" aria-label="Copy prompt from history" disabled={anyLoading}>
                         <Copy className="h-3 w-3" />
                       </Button>
                     </div>
@@ -1267,6 +1346,58 @@ export default function VisionaryPrompterPage() {
           </CardContent>
         </Card>
       )}
+
+      {promptLibrary.length > 0 && (
+        <Card className="w-full mt-8 md:mt-12 shadow-md">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b">
+            <div className="flex items-center mb-2 sm:mb-0">
+              <Bookmark className="mr-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg md:text-xl font-headline text-primary">Prompt Library</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleClearPromptLibrary} className="text-destructive hover:bg-destructive/5 border-destructive/50 hover:border-destructive/70 self-start sm:self-center text-xs h-8 px-2" disabled={anyLoading}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Clear Library
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0 sm:p-1">
+             {promptLibrary.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground text-center">Your prompt library is empty. Save prompts to see them here.</p>
+            ) : (
+            <Accordion type="single" collapsible className="w-full">
+              {promptLibrary.map((savedPrompt) => (
+                <AccordionItem value={savedPrompt.id} key={savedPrompt.id} className="border-b last:border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-2.5 px-3 md:py-3 md:px-4 text-left text-sm group" disabled={anyLoading}>
+                    <div className="flex items-center space-x-3 w-full">
+                       <Bookmark className="h-4 w-4 text-primary/70 shrink-0" />
+                      <div className="flex-grow overflow-hidden">
+                        <p className="font-medium text-xs sm:text-sm truncate text-foreground" title={savedPrompt.name}>
+                          {savedPrompt.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{savedPrompt.timestamp}</p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-1 pb-3 px-4 md:pb-4 md:px-6 space-y-2.5 bg-muted/30">
+                    <Textarea value={savedPrompt.promptText} readOnly className="min-h-[70px] text-xs bg-background" />
+                    <div className="flex flex-wrap gap-1.5">
+                        <Button variant="outline" size="sm" onClick={() => handleLoadPromptFromLibrary(savedPrompt.id)} disabled={anyLoading} className="text-xs h-8 px-2">
+                            <ArrowUpCircle className="mr-1.5 h-3.5 w-3.5" /> Load to Editor
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleCopyText(savedPrompt.promptText, "Library Prompt")} disabled={anyLoading} className="text-xs h-8 px-2">
+                            <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeletePromptFromLibrary(savedPrompt.id)} disabled={anyLoading} className="text-xs h-8 px-2 text-destructive hover:text-destructive">
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
+                        </Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       <footer className="mt-12 md:mt-16 py-6 text-center text-xs text-muted-foreground border-t">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. AI-Powered Creativity.</p>
@@ -1292,3 +1423,4 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
