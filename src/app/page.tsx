@@ -604,7 +604,7 @@ export default function VisionaryPrompterPage() {
 
     setIsImageGenerating(true);
     if (!baseImageUri) {
-        setEditImagePrompt('');
+        setEditImagePrompt(''); // Clear edit prompt only if it's a new generation from text
     }
 
     try {
@@ -622,6 +622,7 @@ export default function VisionaryPrompterPage() {
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: baseImageUri ? "Image edited successfully!" : "Image generated successfully!" });
 
+      // Set a seed for initial generation if one isn't already set
       if (!baseImageUri && imageSeed.trim() === '') {
         setImageSeed(Date.now().toString());
       }
@@ -644,7 +645,7 @@ export default function VisionaryPrompterPage() {
     let currentSeed = imageSeed;
     if (imageSeed.trim() === '') {
       currentSeed = Date.now().toString();
-      setImageSeed(currentSeed); 
+      setImageSeed(currentSeed); // Update state if we generated a new seed
     }
     const finalPromptForImageGeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
     await processImageGeneration(finalPromptForImageGeneration);
@@ -655,8 +656,9 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No prompt available", description: "Cannot regenerate without a base prompt." });
       return;
     }
+    // Uses current imageSeed state, which might have been changed by the user
     let currentSeed = imageSeed;
-    if (imageSeed.trim() === '') {
+    if (imageSeed.trim() === '') { // If user cleared it, generate a new one
         currentSeed = Date.now().toString();
         setImageSeed(currentSeed); 
     }
@@ -684,6 +686,7 @@ export default function VisionaryPrompterPage() {
     }
     const link = document.createElement('a');
     link.href = generatedImageDataUri;
+    // Create a more unique filename including the seed if available
     const fileName = `visionary_image_${imageSeed || Date.now()}.png`;
     link.download = fileName;
     document.body.appendChild(link);
@@ -994,7 +997,7 @@ export default function VisionaryPrompterPage() {
                         className="h-7 px-1.5 text-xs" 
                         aria-label="Try Generate Image"
                     >
-                        {isImageGenerating && !editImagePrompt ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
+                        {isImageGenerating && !editImagePrompt && !generatedImageDataUri ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
                         <span className="ml-1 hidden sm:inline">Generate ({IMAGE_GENERATION_COST} Cr)</span>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">

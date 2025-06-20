@@ -65,6 +65,8 @@ const generateImageFromPromptFlow = ai.defineFlow(
       promptPayload = input.prompt;
     }
 
+    const operationType = input.baseImageDataUri ? "editing" : "generation";
+
     try {
       const {media, text} = await ai.generate({
         model: 'googleai/gemini-2.0-flash-exp', 
@@ -76,23 +78,36 @@ const generateImageFromPromptFlow = ai.defineFlow(
       });
 
       if (!media || !media.url) {
-        console.warn('Image generation/editing did not return media. Text response from model (if any):', text);
-        let errorMessage = 'Image generation/editing failed to produce an image.';
-        if (text && text.toLowerCase().includes('safety policies')) {
-            errorMessage = 'The image could not be generated/edited due to safety policies. Try adjusting your prompt or enabling NSFW if appropriate.';
-        } else if (text) {
-            errorMessage = `Model response: ${text}`;
+        let errorMessage = `Image ${operationType} failed to produce an image.`;
+        if (text) {
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create')) {
+                errorMessage = `The image could not be ${operationType === "editing" ? "edited" : "generated"}. Model response: "${text}". This may be due to safety policies, image content, or other restrictions. Try adjusting your prompt or enabling NSFW if appropriate.`;
+            } else {
+                errorMessage = `Image ${operationType} failed. Model response: "${text}"`;
+            }
+        } else if (!text && (error as any)?.message?.includes('No valid candidates returned')) {
+            errorMessage = `Image ${operationType} failed: No valid candidates returned from the model. This can be due to image content, prompt complexity, or internal model policies. Consider simplifying your prompt or trying a different base image if editing.`;
         }
+        console.warn(`Image ${operationType} did not return media. Text response from model (if any):`, text);
         throw new Error(errorMessage);
       }
 
       return { imageDataUri: media.url };
     } catch (error: any) {
-      console.error('Error in generateImageFromPromptFlow:', error);
-      if (error.message && error.message.toLowerCase().includes('filter')) {
-        throw new Error('The image generation/editing request was blocked by safety filters. Try adjusting your prompt or enabling NSFW if appropriate.');
+      console.error(`Error in generateImageFromPromptFlow during ${operationType}:`, error);
+      let finalErrorMessage = `Image ${operationType} failed: ${error.message || 'Unknown error'}`;
+      if (error.message) {
+        const lowerMessage = error.message.toLowerCase();
+        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy')) {
+          finalErrorMessage = `The image ${operationType} request was possibly affected by safety filters or content policies. Try adjusting your prompt or enabling NSFW if appropriate.`;
+        } else if (lowerMessage.includes('no valid candidates returned')) {
+           finalErrorMessage = `Image ${operationType} failed: The AI model did not produce a valid image, possibly due to the nature of the input image, prompt complexity, or internal model policies. Try a different image or simplify your prompt.`;
+        } else if (lowerMessage.includes('deadline_exceeded')) {
+           finalErrorMessage = `Image ${operationType} failed: The request to the AI model timed out. Please try again later.`;
+        }
       }
-      throw new Error(`Image generation/editing failed: ${error.message || 'Unknown error'}`);
+      throw new Error(finalErrorMessage);
     }
   }
 );

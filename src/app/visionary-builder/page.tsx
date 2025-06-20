@@ -51,6 +51,7 @@ export default function VisionaryBuilderPage() {
     if (currentSessionId) {
       setSessionId(currentSessionId);
     } else {
+      // If no session ID exists (e.g. user lands directly on builder), create one.
       const newId = Date.now().toString(36) + Math.random().toString(36).substring(2);
       localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
       setSessionId(newId);
@@ -66,15 +67,18 @@ export default function VisionaryBuilderPage() {
        if (!isNaN(parsedCredits)) {
         setCredits(parsedCredits);
       } else {
-        localStorage.setItem(creditsStorageKey, '10');
+        // Invalid stored value, reset to default
+        localStorage.setItem(creditsStorageKey, '10'); // Default credits
         setCredits(10);
         dispatchCreditsUpdate(10);
       }
     } else {
-      localStorage.setItem(creditsStorageKey, '10'); 
+      // No credits stored for this session, initialize
+      localStorage.setItem(creditsStorageKey, '10'); // Default credits
       setCredits(10);
       dispatchCreditsUpdate(10);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   useEffect(() => {
@@ -89,24 +93,28 @@ export default function VisionaryBuilderPage() {
       setDisplayTags([]);
       return;
     }
+    // Split by comma, then trim whitespace from each part, then filter out any empty strings
     const newTagTexts = promptText.split(',').map(t => t.trim()).filter(t => t.length > 0);
 
+    // Create new display tags. If a tag text already exists, try to preserve its ID and popover state for stability.
+    // For completely new text or changed text, generate new ID and reset suggestions.
     setDisplayTags(prevDisplayTags => {
       return newTagTexts.map((tagText, index) => {
         const existingTagWithSameText = prevDisplayTags.find(dt => dt.text === tagText);
         
         if (existingTagWithSameText) {
           // If a tag with the exact same text exists, reuse its full state (including ID and suggestions)
+          // to maintain popover state and avoid re-fetching suggestions unnecessarily.
           return { ...existingTagWithSameText };
         } else {
           // If no tag with the exact same text exists, this is effectively a new tag or a modified one.
           // Generate a new unique ID and reset its specific state like suggestions.
           return {
-            id: `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
+            id: `tag-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`, // Unique ID
             text: tagText,
-            suggestions: [],
+            suggestions: [], // Reset suggestions
             isLoadingSuggestions: false,
-            popoverOpen: false,
+            popoverOpen: false, // Reset popover state
           };
         }
       });
@@ -134,9 +142,12 @@ export default function VisionaryBuilderPage() {
 
     if (credits === null || credits < RELATED_TAGS_GENERATION_COST) {
       toast({ variant: "destructive", title: "Not enough credits", description: `You need ${RELATED_TAGS_GENERATION_COST} credit(s).` });
+      // Ensure popover closes if opened without credits
+      setDisplayTags(prevTags => prevTags.map(t => (t.id === tagId ? { ...t, popoverOpen: false } : t)));
       return;
     }
     
+    // Set loading state and ensure popover is open
     setDisplayTags(prevTags =>
       prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: true, suggestions: [], popoverOpen: true } : t)) 
     );
@@ -144,7 +155,7 @@ export default function VisionaryBuilderPage() {
     try {
       const input: GenerateRelatedTagsInput = {
         targetTag: targetTag.text,
-        fullPromptContext: mainPrompt,
+        fullPromptContext: mainPrompt, // Send the whole prompt for better context
       };
       const result = await generateRelatedTags(input);
       
@@ -161,7 +172,7 @@ export default function VisionaryBuilderPage() {
     } catch (error) {
       toast({ variant: "destructive", title: "Error generating suggestions", description: error instanceof Error ? error.message : String(error) });
       setDisplayTags(prevTags =>
-        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false, popoverOpen: false } : t)) 
+        prevTags.map(t => (t.id === tagId ? { ...t, isLoadingSuggestions: false, popoverOpen: false } : t)) // Close popover on error
       );
     }
   };
@@ -169,11 +180,11 @@ export default function VisionaryBuilderPage() {
   const addSuggestionToPrompt = (suggestion: string) => {
     setMainPrompt(prev => {
       const trimmedPrev = prev.trim();
-      if (!trimmedPrev) return suggestion;
+      if (!trimmedPrev) return suggestion; // If prompt is empty, just use suggestion
       if (trimmedPrev.endsWith(',')) {
-        return `${trimmedPrev} ${suggestion}`;
+        return `${trimmedPrev} ${suggestion}`; // If ends with comma, add with a space
       }
-      return `${trimmedPrev}, ${suggestion}`;
+      return `${trimmedPrev}, ${suggestion}`; // Otherwise, add comma and then suggestion
     });
   };
 
@@ -193,9 +204,10 @@ export default function VisionaryBuilderPage() {
       prevTags.map(t => {
         if (t.id === tagId) {
           const newOpenState = typeof open === 'boolean' ? open : !t.popoverOpen;
+          // If trying to open and no suggestions loaded yet, trigger fetch
           if (newOpenState && !t.suggestions?.length && !t.isLoadingSuggestions) {
-            handleGenerateSuggestions(tagId); 
-            return { ...t, popoverOpen: newOpenState, isLoadingSuggestions: true };
+            handleGenerateSuggestions(tagId); // This will also set popoverOpen to true
+            return { ...t, popoverOpen: newOpenState, isLoadingSuggestions: true }; // Mark as loading
           }
           return { ...t, popoverOpen: newOpenState };
         }
@@ -223,10 +235,11 @@ export default function VisionaryBuilderPage() {
       const input: TransformPromptInput = {
         originalPrompt: mainPrompt,
         transformationInstruction: transformationInstruction,
+        // Builder primarily works with English prompts from tags, so language default is fine
       };
       const result = await transformPrompt(input);
-      setMainPrompt(result.transformedPrompt); 
-      setTransformationInstruction(''); 
+      setMainPrompt(result.transformedPrompt); // This will trigger useEffect to parse new tags
+      setTransformationInstruction(''); // Clear instruction input
       
       if (sessionId && credits !== null) {
         const newCredits = credits - PROMPT_TRANSFORMATION_COST;
@@ -307,12 +320,14 @@ export default function VisionaryBuilderPage() {
                             variant="outline"
                             className="text-sm py-1 pl-2.5 pr-1 cursor-pointer hover:bg-accent/50 transition-colors group relative flex items-center gap-1"
                             onClick={() => { 
-                                if (!(tag.popoverOpen && tag.suggestions?.length)) {
-                                    handleGenerateSuggestions(tag.id);
-                                } else if (tag.popoverOpen) {
-                                   togglePopover(tag.id, false); 
+                                // This onClick on Badge might be redundant if PopoverTrigger handles it,
+                                // but ensures click explicitly toggles.
+                                // If popover is already open due to icon click, this might close it.
+                                // The onOpenChange on Popover handles the logic of fetching if needed.
+                                if (!(tag.popoverOpen && tag.suggestions?.length && tag.suggestions.length > 0)) {
+                                     togglePopover(tag.id, true); // Request to open will trigger fetch if needed
                                 } else {
-                                   togglePopover(tag.id, true); 
+                                    togglePopover(tag.id); // Just toggle
                                 }
                             }}
                           >
@@ -322,12 +337,8 @@ export default function VisionaryBuilderPage() {
                               size="icon"
                               className="ml-0.5 h-5 w-5 p-0 opacity-60 group-hover/tag:opacity-100 text-primary hover:bg-primary/10"
                               onClick={(e) => { 
-                                e.stopPropagation(); 
-                                if (tag.popoverOpen && tag.suggestions?.length) { 
-                                    togglePopover(tag.id, false);
-                                } else { 
-                                    handleGenerateSuggestions(tag.id);
-                                }
+                                e.stopPropagation(); // Prevent badge click/popover trigger from firing again
+                                togglePopover(tag.id, true); // Explicitly open/fetch
                               }}
                               disabled={tag.isLoadingSuggestions || (credits !== null && credits < RELATED_TAGS_GENERATION_COST)}
                               aria-label={`Get suggestions for ${tag.text}`}
@@ -380,7 +391,7 @@ export default function VisionaryBuilderPage() {
                     </Popover>
                   ))}
                 </div>
-                 {(credits !== null && credits < RELATED_TAGS_GENERATION_COST && displayTags.some(t => !t.suggestions?.length)) && (
+                 {(credits !== null && credits < RELATED_TAGS_GENERATION_COST && displayTags.some(t => !t.suggestions?.length) && !anyLoading) && (
                     <p className="text-xs text-destructive mt-3">Not enough credits to generate new tag suggestions.</p>
                  )}
               </CardContent>

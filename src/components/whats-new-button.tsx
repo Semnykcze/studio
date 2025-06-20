@@ -16,6 +16,18 @@ import { Gift } from 'lucide-react';
 
 const features = [
   {
+    title: "Image Editing & Regeneration in Visionary Prompter",
+    description: "After generating an image, you can now provide a new text prompt to edit it. Also, regenerate images with control over a 'seed' value to influence style or get variations. You can also save the generated image directly.",
+  },
+  {
+    title: "AI Keyword Suggestions in Visionary Builder",
+    description: "When crafting prompts in Visionary Builder, click the magic wand icon next to any tag to get AI-powered suggestions for related keywords and phrases (costs 1 credit).",
+  },
+  {
+    title: "Prompt Transformation in Visionary Builder",
+    description: "You can now apply AI-driven transformations to your entire composed prompt in Visionary Builder using natural language instructions, similar to the feature in the Prompter (costs 1 credit).",
+  },
+  {
     title: "Visionary Builder Enhancements",
     description: "Tags can now be removed, and the 'X' button for removal is only visible on hover for a cleaner interface. You can also transform your entire prompt using AI instructions.",
   },
@@ -40,6 +52,16 @@ const features = [
     description: "A new switch in Visionary Prompter allows you to configure whether prompts can lead to potentially NSFW content, adjusting AI safety filters accordingly.",
   },
 ];
+
+const uniqueFeatures = features.reduce((acc, current) => {
+  const x = acc.find(item => item.title === current.title && item.description === current.description);
+  if (!x) {
+    return acc.concat([current]);
+  } else {
+    return acc;
+  }
+}, [] as {title: string; description: string}[]);
+
 
 export function WhatsNewButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,7 +90,7 @@ export function WhatsNewButton() {
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2">
-          {features.map((feature, index) => (
+          {uniqueFeatures.map((feature, index) => (
             <div key={index} className="p-3 border rounded-md bg-muted/50">
               <h3 className="font-semibold text-sm text-primary mb-0.5">{feature.title}</h3>
               <p className="text-xs text-muted-foreground">{feature.description}</p>
