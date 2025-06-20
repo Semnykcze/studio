@@ -23,6 +23,7 @@ import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-f
 import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 import { generateImageFromPrompt, type GenerateImageFromPromptInput } from '@/ai/flows/generate-image-from-prompt-flow';
+import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 
 
 import { LoadingSpinner } from '@/components/loading-spinner';
@@ -75,6 +76,7 @@ const OVERALL_MAX_WORDS = 300;
 const IMAGE_GENERATION_COST = 10;
 const DEPTH_MAP_COST = 1;
 const STYLE_ANALYSIS_COST = 1;
+const PROMPT_TRANSFORMATION_COST = 1;
 
 function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -123,6 +125,9 @@ export default function VisionaryPrompterPage() {
   const [isImageGenerating, setIsImageGenerating] = useState<boolean>(false);
   const [imageSeed, setImageSeed] = useState<string>('');
   const [editImagePrompt, setEditImagePrompt] = useState<string>('');
+
+  const [transformationInstruction, setTransformationInstruction] = useState<string>('');
+  const [isTransformingPrompt, setIsTransformingPrompt] = useState<boolean>(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -314,6 +319,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedImageDataUri(null); 
     setEditImagePrompt('');
     setImageSeed('');
+    setTransformationInstruction('');
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -425,6 +431,7 @@ export default function VisionaryPrompterPage() {
     setGeneratedPrompt('');
     setGeneratedImageDataUri(null); 
     setEditImagePrompt('');
+    setTransformationInstruction('');
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
@@ -529,6 +536,50 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "Translation failed", description: error instanceof Error ? error.message : String(error) });
     } finally {
       setIsTranslateLoading(false);
+    }
+  };
+
+  const handleTransformPrompt = async () => {
+    if (!generatedPrompt.trim()) {
+      toast({ variant: "destructive", title: "No Prompt to Transform", description: "Please generate a prompt first." });
+      return;
+    }
+    if (!transformationInstruction.trim()) {
+      toast({ variant: "destructive", title: "No Transformation Instruction", description: "Please enter how you want to change the prompt." });
+      return;
+    }
+    if (sessionId === null) {
+      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
+      return;
+    }
+    if (credits === null || credits < PROMPT_TRANSFORMATION_COST) {
+      toast({ variant: "destructive", title: "Not Enough Credits", description: `You need ${PROMPT_TRANSFORMATION_COST} credit(s) for prompt transformation.` });
+      return;
+    }
+
+    setIsTransformingPrompt(true);
+    try {
+      const input: TransformPromptInput = {
+        originalPrompt: generatedPrompt,
+        transformationInstruction: transformationInstruction,
+        promptLanguage: selectedLanguage,
+      };
+      const result = await transformPrompt(input);
+      setGeneratedPrompt(result.transformedPrompt);
+      setTransformationInstruction(''); 
+
+      const newCredits = credits - PROMPT_TRANSFORMATION_COST;
+      setCredits(newCredits);
+      dispatchCreditsUpdate(newCredits);
+      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+
+      toast({ title: "Prompt Transformed Successfully!", description: "The AI has updated your prompt based on your instruction." });
+    } catch (error) {
+      let desc = "Unknown error during prompt transformation.";
+      if (error instanceof Error) desc = error.message;
+      toast({ variant: "destructive", title: "Prompt Transformation Failed", description: desc });
+    } finally {
+      setIsTransformingPrompt(false);
     }
   };
 
@@ -804,7 +855,7 @@ export default function VisionaryPrompterPage() {
     setMaxWords(newMax);
   };
 
-  const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating;
+  const anyLoading = isLoading || isUrlLoading || isMagicLoading || isTranslateLoading || isExtendingLoading || isDepthMapLoading || isStyleAnalysisLoading || isImageGenerating || isTransformingPrompt;
 
   const renderSelectTrigger = (icon: React.ElementType, placeholder: string, value?: string) => (
     <SelectTrigger className="w-full text-sm md:text-base pl-3 pr-2 py-2 h-10 data-[placeholder]:text-muted-foreground">
@@ -1094,6 +1145,39 @@ export default function VisionaryPrompterPage() {
                   className="min-h-[120px] md:min-h-[150px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
                   aria-live="polite"
                 />
+                
+                {generatedPrompt && !isLoading && (
+                  <div className="mt-4 pt-4 border-t border-border/70 space-y-2.5">
+                    <div>
+                      <Label htmlFor="transformation-instruction" className="text-xs font-medium flex items-center mb-1">
+                          <Edit3 className="mr-1.5 h-3.5 w-3.5 text-primary/90" />
+                          Refine or Transform Current Prompt:
+                      </Label>
+                      <Textarea
+                          id="transformation-instruction"
+                          value={transformationInstruction}
+                          onChange={(e) => setTransformationInstruction(e.target.value)}
+                          placeholder="e.g., 'make it nighttime', 'add a cyberpunk style', 'change the character's clothes to a blue dress'"
+                          className="min-h-[70px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
+                          disabled={anyLoading || !generatedPrompt}
+                          aria-label="Instruction to transform the generated prompt"
+                      />
+                    </div>
+                    <Button
+                        onClick={handleTransformPrompt}
+                        disabled={anyLoading || !generatedPrompt || !transformationInstruction.trim() || (credits !== null && credits < PROMPT_TRANSFORMATION_COST)}
+                        className="w-full text-sm py-2 rounded-md"
+                        variant="outline"
+                        size="sm"
+                    >
+                        {isTransformingPrompt ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Wand2 className="mr-1.5 h-4 w-4" />}
+                        Apply Transformation ({PROMPT_TRANSFORMATION_COST} Credit)
+                    </Button>
+                    {(credits !== null && credits < PROMPT_TRANSFORMATION_COST && generatedPrompt && transformationInstruction.trim() && !isTransformingPrompt) && (
+                        <p className="text-xs text-center text-destructive -mt-1">Not enough credits for transformation.</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
