@@ -30,7 +30,7 @@ import {
   UploadCloud, Copy, Check, Image as ImageIcon, Wand2, BrainCircuit, SlidersHorizontal, 
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, Lightbulb, FileText, Maximize, Eye, EyeOff, Brush,
-  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp
+  Camera, AppWindow, PencilRuler, Square, RectangleVertical, RectangleHorizontal, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save
 } from 'lucide-react';
 
 type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
@@ -993,6 +993,17 @@ export default function VisionaryPrompterPage() {
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleCopyPrompt(generatedPrompt)} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Copy Prompt">
                         {isCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Copy</span>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toast({ title: "Coming Soon!", description: "Save prompt functionality will be implemented in a future update.", duration: 3000 })}
+                        title="Save Prompt (Coming Soon)"
+                        disabled={anyLoading || !generatedPrompt}
+                        className="h-7 px-1.5 text-xs"
+                        aria-label="Save Prompt"
+                    >
+                        <Save className="h-3.5 w-3.5" /> <span className="ml-1 hidden sm:inline">Save</span>
                     </Button>
                 </div>
                 <Textarea
