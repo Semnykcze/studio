@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Keep for other uses if any
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Keep for other uses if any
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
 import { useToast } from '@/hooks/use-toast';
 
 import { ImagePromptConfigCard } from '@/components/visionary-prompter/ImagePromptConfigCard';
@@ -22,7 +22,7 @@ import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
 import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
-import { generateImageFromPrompt, type GenerateImageFromPromptInput } from '@/ai/flows/generate-image-from-prompt-flow';
+import { generateImageFromPrompt, type GenerateImageFromPromptInput, type GenerateImageFromPromptOutput } from '@/ai/flows/generate-image-from-prompt-flow';
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 import { generateCannyEdgeMap, type GenerateCannyEdgeMapInput, type GenerateCannyEdgeMapOutput } from '@/ai/flows/generate-canny-edge-map-flow';
 
@@ -33,10 +33,9 @@ import {
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, LightbulbIcon, FileTextIcon, Maximize, Eye, EyeOff, Brush,
   Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle,
-  GitCommitHorizontal 
-} from 'lucide-react'; // Renamed icons to avoid conflict
+  GitCommitHorizontal, Ban
+} from 'lucide-react'; 
 
-// Types moved to top for better organization or potentially to a types file later
 export type TargetModelType = 'Flux.1 Dev' | 'Midjourney' | 'Stable Diffusion' | 'DALL-E 3' | 'Leonardo AI' | 'General Text' | 'Imagen4' | 'Imagen3';
 export type PromptStyleType = 'detailed' | 'creative' | 'keywords' | 'cinematic' | 'photorealistic' | 'abstract';
 export type ImageTypeType = 'image' | 'photography' | 'icon' | 'logo';
@@ -93,6 +92,7 @@ export default function VisionaryPrompterPage() {
 
 
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
+  const [negativePrompt, setNegativePrompt] = useState<string>(''); // New state
   const [selectedTargetModel, setSelectedTargetModel] = useState<TargetModelType>('Flux.1 Dev');
   const [selectedPromptStyle, setSelectedPromptStyle] = useState<PromptStyleType>('detailed');
   const [selectedImageType, setSelectedImageType] = useState<ImageTypeType>('image');
@@ -267,7 +267,6 @@ export default function VisionaryPrompterPage() {
     }
   }, [promptLibrary]);
 
-  // Constant arrays for select options
   const languageOptions: { value: string; label: string; icon?: React.ElementType }[] = [
     { value: 'English', label: 'English', icon: Globe },
     { value: 'Czech', label: 'Čeština', icon: Globe },
@@ -320,15 +319,24 @@ export default function VisionaryPrompterPage() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''; 
     }
-    // These affect other parts of the page, so they remain here
-    setGeneratedPrompt(''); 
-    setGeneratedDepthMap(null); 
-    setGeneratedCannyEdgeMap(null);
-    setImageStyleAnalysis(null);
-    setGeneratedImageDataUri(null); 
+  };
+
+  const handleClearAllInputs = () => {
+    clearImageInputsAndPreview();
+    setGeneratedPrompt('');
+    setNegativePrompt('');
+    setGeneratedImageDataUri(null);
     setEditImagePrompt('');
     setImageSeed('');
     setTransformationInstruction('');
+    setGeneratedDepthMap(null);
+    setImageStyleAnalysis(null);
+    setGeneratedCannyEdgeMap(null);
+    setActiveImageInputTab('file');
+    // Optionally reset config params to defaults here if desired
+    // setSelectedTargetModel('Flux.1 Dev'); 
+    // etc.
+    toast({ title: "Inputs Cleared", description: "All image inputs and generated content have been reset." });
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -343,7 +351,8 @@ export default function VisionaryPrompterPage() {
         return;
       }
       
-      clearImageInputsAndPreview(); 
+      // Clear previous image and related generated content when a new image is selected
+      handleClearAllInputs(); // This will clear everything, including generated prompt
       setImageFile(file);
       setImageUrlInput(''); 
       
@@ -362,7 +371,9 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsUrlLoading(true);
-    clearImageInputsAndPreview(); 
+    // Clear previous image and related generated content when a new URL is loaded
+    handleClearAllInputs(); // This will clear everything
+    // setImageUrlInput(imageUrlInput); // Restore the URL input as handleClearAllInputs clears it
 
     try {
       try {
@@ -376,41 +387,30 @@ export default function VisionaryPrompterPage() {
 
       if (!response.ok) {
         let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-        }
-        const serverErrorMessage = errorData?.error || `Failed to load image through proxy. Status: ${response.status} ${response.statusText}`;
+        try { errorData = await response.json(); } catch (e) {}
+        const serverErrorMessage = errorData?.error || `Failed to load image. Status: ${response.status}`;
         throw new Error(serverErrorMessage);
       }
       
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.startsWith('image/')) {
-        throw new Error('Proxied URL does not point to a valid image type.');
+        throw new Error('URL does not point to a valid image type.');
       }
 
       const blob = await response.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
         setUploadedImage(reader.result as string);
-        setImageFile(null); 
+        setImageFile(null);
         toast({ title: "Image loaded from URL successfully!" });
       };
-      reader.onerror = () => {
-        throw new Error("Failed to read proxied image data.");
-      };
+      reader.onerror = () => { throw new Error("Failed to read proxied image data."); };
       reader.readAsDataURL(blob);
 
     } catch (error: any) {
-      console.error("Error loading image from URL via proxy:", error);
       let description = "Could not load image from the URL.";
-      if (error.message) {
-          description = error.message;
-          if (error.message.includes("CORS") || error.message.includes("Failed to fetch")) {
-             description = "Network error while trying to fetch image via proxy. Ensure the URL is correct and publicly accessible. If the issue persists, the server hosting the image might be blocking our proxy."
-          }
-      }
-      toast({ variant: "destructive", title: "Error Loading Image from URL", description, duration: 7000 });
+      if (error.message) description = error.message;
+      toast({ variant: "destructive", title: "Error Loading Image", description, duration: 7000 });
       setUploadedImage(null);
     } finally {
       setIsUrlLoading(false);
@@ -437,7 +437,8 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsLoading(true);
-    setGeneratedPrompt('');
+    setGeneratedPrompt(''); // Clear previous prompt
+    setNegativePrompt(''); // Clear previous negative prompt
     setGeneratedImageDataUri(null); 
     setEditImagePrompt('');
     setTransformationInstruction('');
@@ -466,9 +467,7 @@ export default function VisionaryPrompterPage() {
       if (imageFile) {
         sourceDesc = imageFile.name;
       } else if (imageUrlInput.trim()) {
-        try {
-          sourceDesc = `URL: ${new URL(imageUrlInput).hostname}`;
-        } catch { sourceDesc = "Image from URL"; }
+        try { sourceDesc = `URL: ${new URL(imageUrlInput).hostname}`; } catch { sourceDesc = "Image from URL"; }
       }
 
       const newHistoryEntry: HistoryEntry = {
@@ -592,7 +591,7 @@ export default function VisionaryPrompterPage() {
     }
   };
 
-  const processImageGeneration = async (prompt: string, baseImageUri?: string) => {
+  const processImageGeneration = async (promptToUse: string, baseImageUri?: string) => {
     if (sessionId === null) {
       toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
       return;
@@ -604,16 +603,21 @@ export default function VisionaryPrompterPage() {
 
     setIsImageGenerating(true);
     if (!baseImageUri) {
-        setEditImagePrompt(''); // Clear edit prompt only if it's a new generation from text
+        setEditImagePrompt(''); 
     }
 
+    let finalPrompt = promptToUse.trim();
+    if (negativePrompt.trim()) {
+      finalPrompt += `\n\nAVOID THE FOLLOWING: ${negativePrompt.trim()}`;
+    }
+    
     try {
       const input: GenerateImageFromPromptInput = {
-        prompt: prompt,
+        prompt: finalPrompt,
         baseImageDataUri: baseImageUri,
         allowNsfw: allowNsfw,
       };
-      const result = await generateImageFromPrompt(input);
+      const result: GenerateImageFromPromptOutput = await generateImageFromPrompt(input);
       setGeneratedImageDataUri(result.imageDataUri);
 
       const newCredits = credits - IMAGE_GENERATION_COST;
@@ -622,7 +626,6 @@ export default function VisionaryPrompterPage() {
       localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: baseImageUri ? "Image edited successfully!" : "Image generated successfully!" });
 
-      // Set a seed for initial generation if one isn't already set
       if (!baseImageUri && imageSeed.trim() === '') {
         setImageSeed(Date.now().toString());
       }
@@ -645,7 +648,7 @@ export default function VisionaryPrompterPage() {
     let currentSeed = imageSeed;
     if (imageSeed.trim() === '') {
       currentSeed = Date.now().toString();
-      setImageSeed(currentSeed); // Update state if we generated a new seed
+      setImageSeed(currentSeed);
     }
     const finalPromptForImageGeneration = `${generatedPrompt.trim()}${currentSeed ? ` (Artistic influence from seed: ${currentSeed.trim()})` : ''}`;
     await processImageGeneration(finalPromptForImageGeneration);
@@ -656,9 +659,8 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No prompt available", description: "Cannot regenerate without a base prompt." });
       return;
     }
-    // Uses current imageSeed state, which might have been changed by the user
     let currentSeed = imageSeed;
-    if (imageSeed.trim() === '') { // If user cleared it, generate a new one
+    if (imageSeed.trim() === '') { 
         currentSeed = Date.now().toString();
         setImageSeed(currentSeed); 
     }
@@ -686,7 +688,6 @@ export default function VisionaryPrompterPage() {
     }
     const link = document.createElement('a');
     link.href = generatedImageDataUri;
-    // Create a more unique filename including the seed if available
     const fileName = `visionary_image_${imageSeed || Date.now()}.png`;
     link.download = fileName;
     document.body.appendChild(link);
@@ -816,11 +817,10 @@ export default function VisionaryPrompterPage() {
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    clearImageInputsAndPreview();
+    handleClearAllInputs(); // Clear current state before loading
     setUploadedImage(entry.imagePreviewUrl || null);
     setImageFile(null); 
-    if (entry.params.photoSourceDescription?.startsWith("URL: ")) {
-    }
+    // Removed attempt to set imageUrlInput from history to avoid complexity with proxying/re-fetching
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setSelectedImageType(entry.params.imageType);
@@ -833,7 +833,7 @@ export default function VisionaryPrompterPage() {
     
     toast({
       title: "Loaded from history",
-      description: `${entry.params.photoSourceDescription || 'Image preview shown.'}${!entry.imagePreviewUrl ? ' Re-select image file or URL for new generation.' : ''}`,
+      description: `${entry.params.photoSourceDescription || 'Parameters & Prompt loaded.'}${!entry.imagePreviewUrl ? ' Re-select image file or URL if needed for new generations.' : ''}`,
       duration: 5000, 
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -863,6 +863,8 @@ export default function VisionaryPrompterPage() {
     const promptToLoad = promptLibrary.find(p => p.id === promptId);
     if (promptToLoad) {
       setGeneratedPrompt(promptToLoad.promptText);
+      // Maybe clear negative prompt or other related states? For now, just loads the main prompt.
+      setNegativePrompt(''); 
       toast({ title: "Prompt Loaded", description: `"${promptToLoad.name}" loaded into editor.` });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -965,6 +967,7 @@ export default function VisionaryPrompterPage() {
             onImageUpload={handleImageUpload}
             onLoadImageFromUrl={handleLoadImageFromUrl}
             onGeneratePrompt={handleGeneratePrompt}
+            onClearAllInputs={handleClearAllInputs} // New prop
             
             getPreviewText={() => {
                 if (imageFile) return `File: ${imageFile.name}`;
@@ -1032,6 +1035,22 @@ export default function VisionaryPrompterPage() {
                   className="min-h-[120px] md:min-h-[150px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
                   aria-live="polite"
                 />
+
+                <div className="mt-4 pt-3 border-t border-border/60 space-y-2">
+                    <Label htmlFor="negative-prompt-input" className="text-xs font-medium flex items-center">
+                        <Ban className="mr-1.5 h-3.5 w-3.5 text-destructive/80" />
+                        Negative Prompt (Optional - AI will try to avoid these):
+                    </Label>
+                    <Textarea
+                        id="negative-prompt-input"
+                        value={negativePrompt}
+                        onChange={(e) => setNegativePrompt(e.target.value)}
+                        placeholder="e.g., blurry, ugly, deformed hands, watermark, text, extra limbs..."
+                        className="min-h-[70px] text-sm bg-background focus-visible:ring-destructive/50 rounded-md"
+                        disabled={anyLoading || !generatedPrompt}
+                        aria-label="Negative prompt input"
+                    />
+                </div>
                 
                 {generatedPrompt && !isLoading && (
                   <div className="mt-4 pt-4 border-t border-border/70 space-y-2.5">

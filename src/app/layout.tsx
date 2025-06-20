@@ -3,13 +3,8 @@ import type {Metadata} from 'next';
 import Link from 'next/link'; 
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { ThemeToggleButton } from '@/components/theme-toggle-button';
-import { WhatsNewButton } from '@/components/whats-new-button';
-import { AppSwitcherButton } from '@/components/app-switcher-button';
-import { CreditsDisplay } from '@/components/credits-display';
-import { Button } from '@/components/ui/button';
-import { Bot, User, Settings, DraftingCompass, Home } from 'lucide-react'; 
-import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
+import { TopRightMenu } from '@/components/TopRightMenu'; // Changed
+import { Bot, DraftingCompass, Home, Menu as MenuIcon } from 'lucide-react'; // Added MenuIcon
 
 export const metadata: Metadata = {
   title: 'Visionary Suite', 
@@ -31,20 +26,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen flex flex-col">
         <div className="fixed top-4 right-4 z-50 print:hidden flex items-center space-x-2">
-          {/* Order: ThemeToggle, News, AppSwitcher, Builder, Settings, User, Credits */}
-          <ThemeToggleButton />
-          <WhatsNewButton />
-          <AppSwitcherButton />
-          <VisionaryBuilderNavButton />
-          <Button variant="outline" size="icon" asChild className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="Settings">
-            <Link href="/admin">
-              <Settings className="h-[1.1rem] w-[1.1rem]" />
-            </Link>
-          </Button>
-          <Button variant="outline" size="icon" className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground text-foreground/70 hover:text-foreground" title="User Profile (Placeholder)">
-            <User className="h-[1.1rem] w-[1.1rem]" />
-          </Button>
-          <CreditsDisplay />
+          <TopRightMenu />
         </div>
         <main className="flex-grow">
           {children}

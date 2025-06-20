@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from '@/components/ui/badge'; // Added missing import
+import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import type { TargetModelType, PromptStyleType, ImageTypeType, AspectRatioType } from '@/app/page'; // Assuming types are exported from page.tsx or a central types file
+import type { TargetModelType, PromptStyleType, ImageTypeType, AspectRatioType } from '@/app/page';
 
 import {
   UploadCloud, Wand2, Settings2, Lightbulb, ImageIcon, Camera, AppWindow, PencilRuler,
-  Square, RectangleVertical, RectangleHorizontal, Languages, Paintbrush, Link as LinkIcon, FileUp, DownloadCloud
+  Square, RectangleVertical, RectangleHorizontal, Languages, Paintbrush, Link as LinkIcon, FileUp, DownloadCloud, Trash2
 } from 'lucide-react';
 
 interface OptionType {
@@ -26,8 +26,7 @@ interface OptionType {
 
 interface ImagePromptConfigCardProps {
   uploadedImage: string | null;
-  // setUploadedImage: React.Dispatch<React.SetStateAction<string | null>>; // Not directly needed if handlers do it
-  imageFile: File | null; // For displaying name
+  imageFile: File | null; 
   imageUrlInput: string;
   setImageUrlInput: React.Dispatch<React.SetStateAction<string>>;
   activeImageInputTab: string;
@@ -66,6 +65,7 @@ interface ImagePromptConfigCardProps {
   onImageUpload: React.ChangeEventHandler<HTMLInputElement>;
   onLoadImageFromUrl: () => Promise<void>;
   onGeneratePrompt: () => Promise<void>;
+  onClearAllInputs: () => void; // New prop
   getPreviewText: () => string;
 }
 
@@ -105,6 +105,7 @@ export function ImagePromptConfigCard({
   onImageUpload,
   onLoadImageFromUrl,
   onGeneratePrompt,
+  onClearAllInputs, // New prop
   getPreviewText
 }: ImagePromptConfigCardProps) {
 
@@ -306,20 +307,33 @@ export function ImagePromptConfigCard({
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-4 md:p-6 border-t">
+      <CardFooter className="p-4 md:p-6 border-t flex flex-col sm:flex-row gap-2">
         <Button
           onClick={onGeneratePrompt}
           disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
-          className="w-full text-sm py-2.5 rounded-md font-semibold"
+          className="w-full sm:flex-grow text-sm py-2.5 rounded-md font-semibold"
           size="lg"
           aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
         >
           {anyLoading && !isUrlLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
           Generate Visionary Prompt
         </Button>
+        <Button
+            variant="outline"
+            onClick={onClearAllInputs}
+            disabled={anyLoading}
+            className="w-full sm:w-auto text-sm py-2.5 rounded-md"
+            size="lg"
+            title="Clear all inputs and generated content"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Clear All
+          </Button>
       </CardFooter>
-        {credits !== null && credits <= 0 && !anyLoading && (
+        {credits !== null && credits <= 0 && !anyLoading && !uploadedImage && (
         <p className="text-xs text-center text-destructive pb-4 px-6 -mt-2">You have run out of credits.</p>
+      )}
+       {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
+        <p className="text-xs text-center text-destructive pb-4 px-6 -mt-4 sm:-mt-2">You have run out of credits for prompt generation.</p>
       )}
     </Card>
   );
