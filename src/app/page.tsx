@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
+import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
 
 import { ImagePromptConfigCard } from '@/components/visionary-prompter/ImagePromptConfigCard';
@@ -20,7 +21,7 @@ import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from
 import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
 import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
 import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
-import { generateDepthMap, type GenerateDepthMapInput } from '@/ai/flows/generate-depth-map-flow';
+import { generateDepthMapFromImage } from '@/lib/depth-estimation';
 import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 import { generateImageFromPrompt, type GenerateImageFromPromptInput, type GenerateImageFromPromptOutput } from '@/ai/flows/generate-image-from-prompt-flow';
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
@@ -75,7 +76,6 @@ const INITIAL_CREDITS = 10;
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 const IMAGE_GENERATION_COST = 10;
-const DEPTH_MAP_COST = 1;
 const STYLE_ANALYSIS_COST = 1;
 const PROMPT_TRANSFORMATION_COST = 1;
 const CANNY_EDGE_MAP_COST = 1;
@@ -120,6 +120,9 @@ export default function VisionaryPrompterPage() {
 
   const [generatedDepthMap, setGeneratedDepthMap] = useState<string | null>(null);
   const [isDepthMapLoading, setIsDepthMapLoading] = useState<boolean>(false);
+  const [depthModelLoadProgress, setDepthModelLoadProgress] = useState<number | null>(null);
+  const [isDepthModelReady, setIsDepthModelReady] = useState(false);
+
 
   const [imageStyleAnalysis, setImageStyleAnalysis] = useState<AnalyzeImageStyleOutput | null>(null);
   const [isStyleAnalysisLoading, setIsStyleAnalysisLoading] = useState<boolean>(false);
@@ -263,7 +266,7 @@ export default function VisionaryPrompterPage() {
             }
         }
     } catch (error) {
-        console.error("Error saving prompt library to localStorage:", error);
+        console.error("Error saving prompt library from localStorage:", error);
     }
   }, [promptLibrary]);
 
@@ -697,33 +700,30 @@ export default function VisionaryPrompterPage() {
   };
 
 
+  const handleDepthModelProgress = (progress: any) => {
+    if (progress.status === 'progress') {
+        const percentage = (progress.loaded / progress.total) * 100;
+        setDepthModelLoadProgress(percentage);
+    } else if (progress.status === 'ready') {
+        // Model is ready, but pipeline might not be fully done.
+    } else if (progress.status === 'done') {
+        setIsDepthModelReady(true);
+        setDepthModelLoadProgress(null); // Hide progress bar
+    }
+  };
+  
   const handleGenerateDepthMap = async () => {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for depth map generation." }); return;
     }
-    if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." }); return;
-    }
-    if (credits === null || credits < DEPTH_MAP_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${DEPTH_MAP_COST} credit for depth map generation.` }); return;
-    }
 
     setIsDepthMapLoading(true);
     setGeneratedDepthMap(null);
+    
     try {
-      const input: GenerateDepthMapInput = { 
-        photoDataUri: uploadedImage,
-        allowNsfw: allowNsfw 
-      };
-      const result = await generateDepthMap(input);
-      setGeneratedDepthMap(result.depthMapDataUri);
-
-      const newCredits = credits - DEPTH_MAP_COST;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
+      const resultDataUri = await generateDepthMapFromImage(uploadedImage, handleDepthModelProgress);
+      setGeneratedDepthMap(resultDataUri);
       toast({ title: "Depth map generated successfully!" });
-
     } catch (error) {
       let desc = "Unknown error during depth map generation.";
       if (error instanceof Error) desc = error.message;
@@ -731,6 +731,7 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "Depth map generation failed", description: desc });
     } finally {
       setIsDepthMapLoading(false);
+      setDepthModelLoadProgress(null); // Ensure progress bar is hidden after completion/error
     }
   };
 
@@ -964,9 +965,9 @@ export default function VisionaryPrompterPage() {
             allowNsfw={allowNsfw}
             setAllowNsfw={setAllowNsfw}
 
-            onImageUpload={handleImageUpload}
-            onLoadImageFromUrl={handleLoadImageFromUrl}
-            onGeneratePrompt={handleGeneratePrompt}
+            onImageUpload={onImageUpload}
+            onLoadImageFromUrl={onLoadImageFromUrl}
+            onGeneratePrompt={onGeneratePrompt}
             onClearAllInputs={handleClearAllInputs} // New prop
             
             getPreviewText={() => {
@@ -1250,26 +1251,38 @@ export default function VisionaryPrompterPage() {
           <Card className="shadow-md">
             <CardHeader className="border-b">
               <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
-                <Layers className="mr-2 h-5 w-5" /> Depth Map (Experimental)
+                <Layers className="mr-2 h-5 w-5" /> Depth Map (Client-Side)
               </CardTitle>
-              <CardDescription className="text-sm">Generate a depth map. ({DEPTH_MAP_COST} Credit)</CardDescription>
+              <CardDescription className="text-sm">Generate a depth map using a local model. No credit cost.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleGenerateDepthMap} disabled={anyLoading || !uploadedImage || credits === null || credits < DEPTH_MAP_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < DEPTH_MAP_COST ? "Generate Depth Map (No credits left)" : "Generate Depth Map"}>
-                {isDepthMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Layers className="mr-1.5 h-4 w-4" />} Generate Depth Map
+               <Button onClick={handleGenerateDepthMap} disabled={anyLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline">
+                {isDepthMapLoading && depthModelLoadProgress === null ? (
+                  <LoadingSpinner size="0.9rem" className="mr-2" />
+                ) : (
+                  <Layers className="mr-1.5 h-4 w-4" />
+                )}
+                {isDepthMapLoading && depthModelLoadProgress !== null ? 'Loading Model...' : 'Generate Depth Map'}
               </Button>
               {!uploadedImage && !isDepthMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
-              {isDepthMapLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
-                  <LoadingSpinner size="1.5rem" message="Generating depth map..." />
+              
+              {isDepthMapLoading && depthModelLoadProgress !== null && (
+                <div className="mt-2 space-y-1.5">
+                    <Progress value={depthModelLoadProgress} className="w-full h-2" />
+                    <p className="text-xs text-muted-foreground text-center">Initializing depth model... (this happens once)</p>
                 </div>
               )}
+              {isDepthMapLoading && depthModelLoadProgress === null && (
+                 <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
+                    <LoadingSpinner size="1.5rem" message="Generating depth map..." />
+                </div>
+              )}
+
               {generatedDepthMap && !isDepthMapLoading && (
                 <div className="aspect-video w-full relative rounded-md overflow-hidden border mt-2 animate-fade-in-fast">
                   <Image src={generatedDepthMap} alt="Generated depth map" layout="fill" objectFit="contain" data-ai-hint="depth map"/>
                 </div>
               )}
-              {credits !== null && credits < DEPTH_MAP_COST && !anyLoading && uploadedImage && !isDepthMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for depth map.</p>)}
             </CardContent>
           </Card>
 
@@ -1441,4 +1454,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
