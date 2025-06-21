@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Menu, Settings, User } from 'lucide-react';
+import { Menu, Settings, User, UserPlus } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { WhatsNewButton } from '@/components/whats-new-button';
 import { AppSwitcherButton } from '@/components/app-switcher-button';
@@ -62,17 +62,24 @@ export function TopRightMenu() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/register" className="flex items-center w-full">
+            <UserPlus className="mr-2 h-4 w-4" />
+            <span>Register</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => alert('Login clicked! (Placeholder for next step)')}
+          className="cursor-pointer"
+        >
+          <User className="mr-2 h-4 w-4" />
+          <span>Login</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/admin" className="flex items-center w-full">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => alert('User Profile clicked! (Placeholder)')}
-          className="cursor-pointer"
-        >
-          <User className="mr-2 h-4 w-4" />
-          <span>User Profile</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
