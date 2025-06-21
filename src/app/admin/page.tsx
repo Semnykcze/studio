@@ -9,11 +9,10 @@ export default function AdminPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-background text-foreground">
       <h1 className="text-3xl font-bold text-primary mb-4">Admin Panel</h1>
       <p className="text-muted-foreground">
-        The admin panel functionality for managing user credits has been temporarily removed
-        as the application now manages credits locally in the browser.
+        Admin panel functionality is currently inactive.
       </p>
       <p className="text-muted-foreground mt-2">
-        To re-enable centralized credit management and the admin panel, a database solution (e.g., Firestore) would need to be integrated.
+        User management features will be enabled here once a database and authentication are integrated.
       </p>
     </div>
   );

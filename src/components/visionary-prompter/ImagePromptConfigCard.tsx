@@ -34,7 +34,6 @@ interface ImagePromptConfigCardProps {
   isUrlLoading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   anyLoading: boolean;
-  credits: number | null;
 
   targetModelOptions: { value: TargetModelType; label: string; icon: React.ElementType }[];
   imageTypeOptions: { value: ImageTypeType; label: string; icon: React.ElementType }[];
@@ -79,7 +78,6 @@ export function ImagePromptConfigCard({
   isUrlLoading,
   fileInputRef,
   anyLoading,
-  credits,
   targetModelOptions,
   imageTypeOptions,
   aspectRatioOptions,
@@ -310,10 +308,10 @@ export function ImagePromptConfigCard({
       <CardFooter className="p-4 md:p-6 border-t flex flex-col sm:flex-row gap-2">
         <Button
           onClick={onGeneratePrompt}
-          disabled={anyLoading || !uploadedImage || credits === null || credits <= 0}
+          disabled={anyLoading || !uploadedImage}
           className="w-full sm:flex-grow text-sm py-2.5 rounded-md font-semibold"
           size="lg"
-          aria-label={credits !== null && credits <=0 ? "Generate Prompt (No credits left)" : "Generate Prompt"}
+          aria-label="Generate Prompt"
         >
           {anyLoading && !isUrlLoading ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
           Generate Visionary Prompt
@@ -329,12 +327,6 @@ export function ImagePromptConfigCard({
             <Trash2 className="mr-2 h-4 w-4" /> Clear All
           </Button>
       </CardFooter>
-        {credits !== null && credits <= 0 && !anyLoading && !uploadedImage && (
-        <p className="text-xs text-center text-destructive pb-4 px-6 -mt-2">You have run out of credits.</p>
-      )}
-       {credits !== null && credits <= 0 && !anyLoading && uploadedImage && (
-        <p className="text-xs text-center text-destructive pb-4 px-6 -mt-4 sm:-mt-2">You have run out of credits for prompt generation.</p>
-      )}
     </Card>
   );
 }

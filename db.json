@@ -1,3 +1,14 @@
 {
-  "users": []
+  "users": [
+    {
+      "id": "426ac282-ef35-48b8-85f9-d521503a1383",
+      "username": "nykadamec",
+      "passwordHash": "$2a$10$kEDpwz1mtSdZlmwmgz/jlOUJ/jon17VuAQ311BAfJ4iQXm2A2dT5a",
+      "credits": 100,
+      "isPremium": false,
+      "isAdmin": false,
+      "history": [],
+      "createdAt": "2025-06-21T23:33:32.505Z"
+    }
+  ]
 }

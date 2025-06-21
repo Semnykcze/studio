@@ -90,19 +90,8 @@ export interface SavedPromptEntry {
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
 const LOCAL_STORAGE_PROMPT_LIBRARY_KEY = 'visionaryPrompterLibrary';
-const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId';
-const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_';
-const INITIAL_CREDITS = 10;
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
-const IMAGE_GENERATION_COST = 10;
-const STYLE_ANALYSIS_COST = 1;
-const PROMPT_TRANSFORMATION_COST = 1;
-const CANNY_EDGE_MAP_COST = 1;
-
-function generateSessionId() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
 
 export default function VisionaryPrompterPage() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -132,12 +121,6 @@ export default function VisionaryPrompterPage() {
   const [generationHistory, setGenerationHistory] = useState<HistoryEntry[]>([]);
   const [promptLibrary, setPromptLibrary] = useState<SavedPromptEntry[]>([]);
   
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
-  
-  const [isEditingSessionId, setIsEditingSessionId] = useState<boolean>(false);
-  const [newSessionIdInput, setNewSessionIdInput] = useState<string>("");
-
   const [imageStyleAnalysis, setImageStyleAnalysis] = useState<AnalyzeImageStyleOutput | null>(null);
   const [isStyleAnalysisLoading, setIsStyleAnalysisLoading] = useState<boolean>(false);
 
@@ -155,53 +138,6 @@ export default function VisionaryPrompterPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  const dispatchCreditsUpdate = (newCreditsValue: number) => {
-    window.dispatchEvent(new CustomEvent('creditsChanged', { detail: newCreditsValue }));
-  };
-
-  useEffect(() => {
-    let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
-    if (!currentSessionId) {
-      currentSessionId = generateSessionId();
-      localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, currentSessionId);
-    }
-    setSessionId(currentSessionId);
-  }, []);
-
-  useEffect(() => {
-    if (!sessionId) return; 
-
-    const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
-    try {
-      const storedCredits = localStorage.getItem(creditsStorageKey);
-      let currentCreditsValue: number;
-      if (storedCredits === null) {
-        currentCreditsValue = INITIAL_CREDITS;
-        localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
-      } else {
-        const parsedCredits = parseInt(storedCredits, 10);
-        if (isNaN(parsedCredits)) {
-            currentCreditsValue = INITIAL_CREDITS;
-            localStorage.setItem(creditsStorageKey, INITIAL_CREDITS.toString());
-        } else {
-            currentCreditsValue = parsedCredits;
-        }
-      }
-      setCredits(currentCreditsValue);
-      dispatchCreditsUpdate(currentCreditsValue);
-
-    } catch (error) {
-      setCredits(INITIAL_CREDITS); 
-      dispatchCreditsUpdate(INITIAL_CREDITS);
-      toast({
-        variant: "destructive",
-        title: "Credit System Error",
-        description: "Could not load credits.",
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, toast]);
 
   useEffect(() => {
     try {
@@ -440,14 +376,6 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No image available", description: "Please upload an image or load from URL first." });
       return;
     }
-     if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available. Please refresh."});
-      return;
-    }
-    if (credits === null || credits <= 0) {
-      toast({ variant: "destructive", title: "No credits left", description: "You have run out of credits." });
-      return;
-    }
     if (minWords > maxWords) {
       toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words cannot be greater than Max words." });
       return;
@@ -473,12 +401,6 @@ export default function VisionaryPrompterPage() {
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
-
-      const newCredits = credits - 1;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
-      localStorage.setItem(creditsStorageKey, newCredits.toString());
 
       let sourceDesc = 'Uploaded Image';
       if (imageFile) {
@@ -573,14 +495,6 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No Transformation Instruction", description: "Please enter how you want to change the prompt." });
       return;
     }
-    if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
-      return;
-    }
-    if (credits === null || credits < PROMPT_TRANSFORMATION_COST) {
-      toast({ variant: "destructive", title: "Not Enough Credits", description: `You need ${PROMPT_TRANSFORMATION_COST} credit(s) for prompt transformation.` });
-      return;
-    }
 
     setIsTransformingPrompt(true);
     try {
@@ -593,11 +507,6 @@ export default function VisionaryPrompterPage() {
       setGeneratedPrompt(result.transformedPrompt);
       setTransformationInstruction(''); 
 
-      const newCredits = credits - PROMPT_TRANSFORMATION_COST;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
-
       toast({ title: "Prompt Transformed Successfully!", description: "The AI has updated your prompt based on your instruction." });
     } catch (error) {
       let desc = "Unknown error during prompt transformation.";
@@ -609,15 +518,6 @@ export default function VisionaryPrompterPage() {
   };
 
   const processImageGeneration = async (promptToUse: string, baseImageUri?: string) => {
-    if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." });
-      return;
-    }
-    if (credits === null || credits < IMAGE_GENERATION_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${IMAGE_GENERATION_COST} credits.` });
-      return;
-    }
-
     setIsImageGenerating(true);
     if (!baseImageUri) {
         setEditImagePrompt(''); 
@@ -637,10 +537,6 @@ export default function VisionaryPrompterPage() {
       const result: GenerateImageFromPromptOutput = await generateImageFromPrompt(input);
       setGeneratedImageDataUri(result.imageDataUri);
 
-      const newCredits = credits - IMAGE_GENERATION_COST;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: baseImageUri ? "Image edited successfully!" : "Image generated successfully!" });
 
       if (!baseImageUri && imageSeed.trim() === '') {
@@ -717,12 +613,6 @@ export default function VisionaryPrompterPage() {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for Canny edge map generation." }); return;
     }
-    if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error", description: "Session ID not available." }); return;
-    }
-    if (credits === null || credits < CANNY_EDGE_MAP_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${CANNY_EDGE_MAP_COST} credit for Canny edge map generation.` }); return;
-    }
 
     setIsCannyEdgeMapLoading(true);
     setGeneratedCannyEdgeMap(null);
@@ -733,10 +623,6 @@ export default function VisionaryPrompterPage() {
       const result: GenerateCannyEdgeMapOutput = await generateCannyEdgeMap(input);
       setGeneratedCannyEdgeMap(result.cannyEdgeMapDataUri);
 
-      const newCredits = credits - CANNY_EDGE_MAP_COST;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Canny edge map generated successfully!" });
 
     } catch (error) {
@@ -754,22 +640,12 @@ export default function VisionaryPrompterPage() {
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for style analysis" }); return;
     }
-    if (sessionId === null) {
-      toast({ variant: "destructive", title: "Session Error" }); return;
-    }
-    if (credits === null || credits < STYLE_ANALYSIS_COST) {
-      toast({ variant: "destructive", title: "No credits for style analysis", description: `You need ${STYLE_ANALYSIS_COST} credit.` }); return;
-    }
-
+    
     setIsStyleAnalysisLoading(true);
     setImageStyleAnalysis(null);
     try {
       const result = await analyzeImageStyle({ photoDataUri: uploadedImage });
       setImageStyleAnalysis(result);
-      const newCredits = credits - STYLE_ANALYSIS_COST;
-      setCredits(newCredits);
-      dispatchCreditsUpdate(newCredits);
-      localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
       toast({ title: "Image style analysis complete!" });
     } catch (error) {
       toast({ variant: "destructive", title: "Style analysis failed", description: error instanceof Error ? error.message : String(error) });
@@ -864,19 +740,6 @@ export default function VisionaryPrompterPage() {
     }
   };
 
-
-  const handleSessionIdChange = () => {
-    if (newSessionIdInput.trim() === "") {
-      toast({ variant: "destructive", title: "Invalid Session ID" }); return;
-    }
-    const newId = newSessionIdInput.trim();
-    localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
-    setSessionId(newId); 
-    setIsEditingSessionId(false);
-    setNewSessionIdInput(""); 
-    toast({ title: "Session ID Changed", description: `Switched to ${newId}.` });
-  };
-  
   const handleWordCountChange = (newRange: number[]) => {
     let newMin = Math.max(OVERALL_MIN_WORDS, newRange[0]);
     let newMax = Math.min(OVERALL_MAX_WORDS, newRange[1]);
@@ -915,7 +778,6 @@ export default function VisionaryPrompterPage() {
             isUrlLoading={isUrlLoading}
             fileInputRef={fileInputRef}
             anyLoading={anyLoading}
-            credits={credits}
             
             targetModelOptions={targetModelOptions}
             imageTypeOptions={imageTypeOptions}
@@ -974,13 +836,13 @@ export default function VisionaryPrompterPage() {
                         variant="ghost" 
                         size="sm" 
                         onClick={handleTryGenerateImage} 
-                        title={`Try Generate Image (${IMAGE_GENERATION_COST} Credits)`} 
-                        disabled={anyLoading || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
+                        title="Try Generate Image"
+                        disabled={anyLoading || !generatedPrompt} 
                         className="h-7 px-1.5 text-xs" 
                         aria-label="Try Generate Image"
                     >
                         {isImageGenerating && !editImagePrompt && !generatedImageDataUri ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
-                        <span className="ml-1 hidden sm:inline">Generate ({IMAGE_GENERATION_COST} Cr)</span>
+                        <span className="ml-1 hidden sm:inline">Generate</span>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
                         {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Magic</span>
@@ -1050,17 +912,14 @@ export default function VisionaryPrompterPage() {
                     </div>
                     <Button
                         onClick={handleTransformPrompt}
-                        disabled={anyLoading || !generatedPrompt || !transformationInstruction.trim() || (credits !== null && credits < PROMPT_TRANSFORMATION_COST)}
+                        disabled={anyLoading || !generatedPrompt || !transformationInstruction.trim()}
                         className="w-full text-sm py-2 rounded-md"
                         variant="outline"
                         size="sm"
                     >
                         {isTransformingPrompt ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Wand2 className="mr-1.5 h-4 w-4" />}
-                        Apply Transformation ({PROMPT_TRANSFORMATION_COST} Credit)
+                        Apply Transformation
                     </Button>
-                    {(credits !== null && credits < PROMPT_TRANSFORMATION_COST && generatedPrompt && transformationInstruction.trim() && !isTransformingPrompt) && (
-                        <p className="text-xs text-center text-destructive -mt-1">Not enough credits for transformation.</p>
-                    )}
                   </div>
                 )}
               </CardContent>
@@ -1111,13 +970,13 @@ export default function VisionaryPrompterPage() {
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={handleRegenerateImage}
-                                title={`Regenerate Image (${IMAGE_GENERATION_COST} Credits)`} 
-                                disabled={isImageGenerating || !generatedPrompt || (credits !== null && credits < IMAGE_GENERATION_COST)} 
+                                title="Regenerate Image"
+                                disabled={isImageGenerating || !generatedPrompt} 
                                 className="h-7 px-1.5 text-xs" 
                                 aria-label="Regenerate Image"
                             >
                                 {isImageGenerating && !editImagePrompt ? <LoadingSpinner size="0.8rem" /> : <RefreshCw className="h-3.5 w-3.5" />} 
-                                <span className="ml-1 hidden sm:inline">Regenerate ({IMAGE_GENERATION_COST} Cr)</span>
+                                <span className="ml-1 hidden sm:inline">Regenerate</span>
                             </Button>
                             <Button 
                                 variant="ghost" 
@@ -1138,9 +997,6 @@ export default function VisionaryPrompterPage() {
                               <Wand2 className="h-3.5 w-3.5 opacity-50" /> <span className="ml-1 hidden sm:inline opacity-50">Variations</span>
                             </Button>
                         </div>
-                        {(credits !== null && credits < IMAGE_GENERATION_COST && generatedImageDataUri && !isImageGenerating) && (
-                          <p className="text-xs text-center text-destructive mt-2 max-w-md mx-auto">Not enough credits to regenerate or edit.</p>
-                        )}
 
                         <div className="mt-4 max-w-md mx-auto space-y-2">
                            <Label htmlFor="edit-image-prompt" className="text-xs font-medium flex items-center">
@@ -1156,13 +1012,13 @@ export default function VisionaryPrompterPage() {
                            />
                            <Button
                              onClick={handleEditImage}
-                             disabled={isImageGenerating || !editImagePrompt.trim() || !generatedImageDataUri || (credits !== null && credits < IMAGE_GENERATION_COST)}
+                             disabled={isImageGenerating || !editImagePrompt.trim() || !generatedImageDataUri}
                              className="w-full text-sm py-2 rounded-md"
                              size="sm"
                              variant="outline"
                            >
                              {isImageGenerating && editImagePrompt ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Brush className="mr-1.5 h-4 w-4" />}
-                             Edit Image ({IMAGE_GENERATION_COST} Credits)
+                             Edit Image
                            </Button>
                         </div>
                       </>
@@ -1178,10 +1034,10 @@ export default function VisionaryPrompterPage() {
               <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                 <Palette className="mr-2 h-5 w-5" /> Image Style Analysis
               </CardTitle>
-              <CardDescription className="text-sm">Identify artistic style, colors, mood. ({STYLE_ANALYSIS_COST} Credit)</CardDescription>
+              <CardDescription className="text-sm">Identify artistic style, colors, and mood.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || credits === null || credits < STYLE_ANALYSIS_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < STYLE_ANALYSIS_COST ? "Analyze Image Style (No credits left)" : "Analyze Image Style"}>
+              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Analyze Image Style">
                 {isStyleAnalysisLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Paintbrush className="mr-1.5 h-4 w-4" />} Analyze Style
               </Button>
               {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
@@ -1222,7 +1078,6 @@ export default function VisionaryPrompterPage() {
                   </div>
                 </div>
               )}
-              {credits !== null && credits < STYLE_ANALYSIS_COST && !anyLoading && uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for style analysis.</p>)}
             </CardContent>
           </Card>
 
@@ -1233,10 +1088,10 @@ export default function VisionaryPrompterPage() {
               <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                 <GitCommitHorizontal className="mr-2 h-5 w-5" /> Edge Detection (Canny)
               </CardTitle>
-              <CardDescription className="text-sm">Generate a Canny edge map for ControlNet. ({CANNY_EDGE_MAP_COST} Credit)</CardDescription>
+              <CardDescription className="text-sm">Generate a Canny edge map for ControlNet.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleGenerateCannyEdgeMap} disabled={anyLoading || !uploadedImage || credits === null || credits < CANNY_EDGE_MAP_COST} className="w-full mb-4 text-sm py-2" variant="outline" aria-label={credits !== null && credits < CANNY_EDGE_MAP_COST ? "Generate Canny Edge Map (No credits left)" : "Generate Canny Edge Map"}>
+              <Button onClick={handleGenerateCannyEdgeMap} disabled={anyLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Generate Canny Edge Map">
                 {isCannyEdgeMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <GitCommitHorizontal className="mr-1.5 h-4 w-4" />} Generate Canny Edges
               </Button>
               {!uploadedImage && !isCannyEdgeMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable Canny edge map generation.</p>)}
@@ -1250,7 +1105,6 @@ export default function VisionaryPrompterPage() {
                   <Image src={generatedCannyEdgeMap} alt="Generated Canny edge map" layout="fill" objectFit="contain" data-ai-hint="canny edge map"/>
                 </div>
               )}
-              {credits !== null && credits < CANNY_EDGE_MAP_COST && !anyLoading && uploadedImage && !isCannyEdgeMapLoading && (<p className="text-xs text-center text-destructive mt-2">Not enough credits for Canny edge map.</p>)}
             </CardContent>
           </Card>
 
@@ -1374,24 +1228,6 @@ export default function VisionaryPrompterPage() {
 
       <footer className="mt-12 md:mt-16 py-6 text-center text-xs text-muted-foreground border-t">
         <p>&copy; {new Date().getFullYear()} Visionary Prompter. AI-Powered Creativity.</p>
-        {sessionId && !isEditingSessionId && (
-          <div className="text-xs mt-1.5">
-            Session:{" "}
-            <Button variant="link" className="p-0 h-auto text-xs text-primary/80 hover:underline" onClick={() => { setNewSessionIdInput(sessionId); setIsEditingSessionId(true); }} title="Edit Session ID" disabled={anyLoading}>
-              {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId} <Edit3 className="ml-0.5 h-2.5 w-2.5" />
-            </Button>
-          </div>
-        )}
-        {isEditingSessionId && sessionId && (
-          <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-1.5 max-w-sm mx-auto">
-            <Label htmlFor="session-id-input" className="text-xs sr-only">New Session ID:</Label>
-            <Input id="session-id-input" type="text" value={newSessionIdInput} onChange={(e) => setNewSessionIdInput(e.target.value)} placeholder="Enter or generate new Session ID" className="text-xs h-8 w-full sm:w-auto flex-grow" onKeyDown={(e) => { if (e.key === 'Enter') handleSessionIdChange(); }} disabled={anyLoading} />
-            <div className="flex gap-1.5 mt-1 sm:mt-0">
-              <Button size="sm" onClick={handleSessionIdChange} className="h-8 text-xs px-2.5" disabled={anyLoading}>Set ID</Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditingSessionId(false)} className="h-8 text-xs px-2.5" disabled={anyLoading}>Cancel</Button>
-            </div>
-          </div>
-        )}
       </footer>
     </div>
   );

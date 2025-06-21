@@ -16,7 +16,6 @@ import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { WhatsNewButton } from '@/components/whats-new-button';
 import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
-import { CreditsDisplay } from '@/components/credits-display';
 
 export function TopRightMenu() {
   return (
@@ -41,10 +40,6 @@ export function TopRightMenu() {
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <CreditsDisplay />
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
          <div className="px-2 py-1.5 text-xs text-muted-foreground">Toggle Theme:</div>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent">

@@ -18,10 +18,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const LOCAL_STORAGE_BUILDER_PROMPT_KEY = 'visionaryBuilderPrompt';
-const LOCAL_STORAGE_SESSION_ID_KEY = 'visionaryPrompterSessionId'; // Reuse for credits
-const LOCAL_STORAGE_CREDITS_KEY_PREFIX = 'visionaryPrompterCredits_'; // Reuse for credits
-const RELATED_TAGS_GENERATION_COST = 1;
-const PROMPT_TRANSFORMATION_COST = 1;
 
 interface DisplayTag {
   id: string; 
@@ -35,51 +31,10 @@ export default function VisionaryBuilderPage() {
   const [mainPrompt, setMainPrompt] = useState<string>('');
   const [displayTags, setDisplayTags] = useState<DisplayTag[]>([]);
   const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [credits, setCredits] = useState<number | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [transformationInstruction, setTransformationInstruction] = useState<string>('');
   const [isTransforming, setIsTransforming] = useState<boolean>(false);
 
   const { toast } = useToast();
-
-  const dispatchCreditsUpdate = (newCreditsValue: number) => {
-    window.dispatchEvent(new CustomEvent('creditsChanged', { detail: newCreditsValue }));
-  };
-  
-  useEffect(() => {
-    let currentSessionId = localStorage.getItem(LOCAL_STORAGE_SESSION_ID_KEY);
-    if (currentSessionId) {
-      setSessionId(currentSessionId);
-    } else {
-      // If no session ID exists (e.g. user lands directly on builder), create one.
-      const newId = Date.now().toString(36) + Math.random().toString(36).substring(2);
-      localStorage.setItem(LOCAL_STORAGE_SESSION_ID_KEY, newId);
-      setSessionId(newId);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    const creditsStorageKey = `${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`;
-    const storedCredits = localStorage.getItem(creditsStorageKey);
-    if (storedCredits !== null) {
-      const parsedCredits = parseInt(storedCredits, 10);
-       if (!isNaN(parsedCredits)) {
-        setCredits(parsedCredits);
-      } else {
-        // Invalid stored value, reset to default
-        localStorage.setItem(creditsStorageKey, '10'); // Default credits
-        setCredits(10);
-        dispatchCreditsUpdate(10);
-      }
-    } else {
-      // No credits stored for this session, initialize
-      localStorage.setItem(creditsStorageKey, '10'); // Default credits
-      setCredits(10);
-      dispatchCreditsUpdate(10);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
 
   useEffect(() => {
     const savedPrompt = localStorage.getItem(LOCAL_STORAGE_BUILDER_PROMPT_KEY);
@@ -139,13 +94,6 @@ export default function VisionaryBuilderPage() {
     if (tagIndex === -1) return;
 
     const targetTag = displayTags[tagIndex];
-
-    if (credits === null || credits < RELATED_TAGS_GENERATION_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${RELATED_TAGS_GENERATION_COST} credit(s).` });
-      // Ensure popover closes if opened without credits
-      setDisplayTags(prevTags => prevTags.map(t => (t.id === tagId ? { ...t, popoverOpen: false } : t)));
-      return;
-    }
     
     // Set loading state and ensure popover is open
     setDisplayTags(prevTags =>
@@ -163,12 +111,6 @@ export default function VisionaryBuilderPage() {
         prevTags.map(t => (t.id === tagId ? { ...t, suggestions: result.suggestedKeywords, isLoadingSuggestions: false } : t))
       );
 
-      if (sessionId && credits !== null) {
-        const newCredits = credits - RELATED_TAGS_GENERATION_COST;
-        setCredits(newCredits);
-        dispatchCreditsUpdate(newCredits);
-        localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
-      }
     } catch (error) {
       toast({ variant: "destructive", title: "Error generating suggestions", description: error instanceof Error ? error.message : String(error) });
       setDisplayTags(prevTags =>
@@ -225,10 +167,6 @@ export default function VisionaryBuilderPage() {
       toast({ variant: "destructive", title: "No transformation instruction", description: "Please describe how you want to change the prompt." });
       return;
     }
-    if (credits === null || credits < PROMPT_TRANSFORMATION_COST) {
-      toast({ variant: "destructive", title: "Not enough credits", description: `You need ${PROMPT_TRANSFORMATION_COST} credit(s) for transformation.` });
-      return;
-    }
 
     setIsTransforming(true);
     try {
@@ -241,12 +179,6 @@ export default function VisionaryBuilderPage() {
       setMainPrompt(result.transformedPrompt); // This will trigger useEffect to parse new tags
       setTransformationInstruction(''); // Clear instruction input
       
-      if (sessionId && credits !== null) {
-        const newCredits = credits - PROMPT_TRANSFORMATION_COST;
-        setCredits(newCredits);
-        dispatchCreditsUpdate(newCredits);
-        localStorage.setItem(`${LOCAL_STORAGE_CREDITS_KEY_PREFIX}${sessionId}`, newCredits.toString());
-      }
       toast({ title: "Prompt transformed successfully!" });
     } catch (error) {
       toast({ variant: "destructive", title: "Prompt transformation failed", description: error instanceof Error ? error.message : String(error) });
@@ -307,7 +239,7 @@ export default function VisionaryBuilderPage() {
                   <Sparkles className="mr-2 h-5 w-5" /> Enhance Tags
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions ({RELATED_TAGS_GENERATION_COST} credit/tag). Hover for <X size={14} className="inline align-text-bottom text-destructive"/> to remove.
+                  Click <Wand2 size={14} className="inline align-text-bottom"/> on a tag for AI suggestions. Hover for <X size={14} className="inline align-text-bottom text-destructive"/> to remove.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 md:p-6">
@@ -340,9 +272,9 @@ export default function VisionaryBuilderPage() {
                                 e.stopPropagation(); // Prevent badge click/popover trigger from firing again
                                 togglePopover(tag.id, true); // Explicitly open/fetch
                               }}
-                              disabled={tag.isLoadingSuggestions || (credits !== null && credits < RELATED_TAGS_GENERATION_COST)}
+                              disabled={tag.isLoadingSuggestions}
                               aria-label={`Get suggestions for ${tag.text}`}
-                              title={`Get AI suggestions (${RELATED_TAGS_GENERATION_COST} credit)`}
+                              title="Get AI suggestions"
                             >
                               {tag.isLoadingSuggestions ? <LoadingSpinner size="0.6rem" /> : <Wand2 size={11} />}
                             </Button>
@@ -391,9 +323,6 @@ export default function VisionaryBuilderPage() {
                     </Popover>
                   ))}
                 </div>
-                 {(credits !== null && credits < RELATED_TAGS_GENERATION_COST && displayTags.some(t => !t.suggestions?.length) && !anyLoading) && (
-                    <p className="text-xs text-destructive mt-3">Not enough credits to generate new tag suggestions.</p>
-                 )}
               </CardContent>
             </Card>
           )}
@@ -404,7 +333,7 @@ export default function VisionaryBuilderPage() {
                 <Edit className="mr-2 h-5 w-5" /> Transform Full Prompt
               </CardTitle>
               <CardDescription className="text-sm">
-                Describe how you want to change the entire prompt above. Costs {PROMPT_TRANSFORMATION_COST} credit.
+                Describe how you want to change the entire prompt above.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 space-y-3">
@@ -418,7 +347,7 @@ export default function VisionaryBuilderPage() {
               />
               <Button 
                 onClick={handleTransformPrompt} 
-                disabled={anyLoading || !mainPrompt.trim() || !transformationInstruction.trim() || (credits !== null && credits < PROMPT_TRANSFORMATION_COST)} 
+                disabled={anyLoading || !mainPrompt.trim() || !transformationInstruction.trim()} 
                 className="w-full text-sm py-2"
               >
                 {isTransforming ? <LoadingSpinner size="1rem" className="mr-2" /> : <Wand2 className="mr-2 h-4 w-4" />}
@@ -426,9 +355,6 @@ export default function VisionaryBuilderPage() {
               </Button>
               {(!mainPrompt.trim() && !anyLoading) && (
                 <p className="text-xs text-muted-foreground text-center">Enter a main prompt first to enable transformation.</p>
-              )}
-              {(credits !== null && credits < PROMPT_TRANSFORMATION_COST && mainPrompt.trim() && transformationInstruction.trim() && !anyLoading) && (
-                <p className="text-xs text-destructive text-center">Not enough credits for prompt transformation.</p>
               )}
             </CardContent>
           </Card>
@@ -445,9 +371,9 @@ export default function VisionaryBuilderPage() {
             <CardContent className="p-4 md:p-6 text-sm space-y-2 text-muted-foreground">
                 <p>1. Start by typing your core ideas into the "Main Prompt" area. Use commas (,) to separate distinct concepts (tags).</p>
                 <p>2. Tags will appear below. Hover over a tag to see the <X size={14} className="inline align-text-bottom text-destructive"/> icon to remove it.</p>
-                <p>3. Click the <Wand2 size={14} className="inline align-text-bottom"/> icon on a tag to get AI keyword suggestions ({RELATED_TAGS_GENERATION_COST} credit).</p>
+                <p>3. Click the <Wand2 size={14} className="inline align-text-bottom"/> icon on a tag to get AI keyword suggestions.</p>
                 <p>4. Click <PlusCircle size={14} className="inline align-text-bottom text-green-500"/> next to a suggestion to add it to your main prompt.</p>
-                <p>5. Use the "Transform Full Prompt" section to describe changes to the entire prompt ({PROMPT_TRANSFORMATION_COST} credit).</p>
+                <p>5. Use the "Transform Full Prompt" section to describe changes to the entire prompt.</p>
                 <p>6. Once happy, use "Copy Full Prompt" to use it in your image generator.</p>
             </CardContent>
           </Card>
@@ -472,7 +398,6 @@ export default function VisionaryBuilderPage() {
               </Link>
             </nav>
         </div>
-         {sessionId && (<p className="text-xs mt-1">Session: {sessionId.length > 15 ? `${sessionId.substring(0,15)}...` : sessionId}</p>)}
       </footer>
     </div>
   );
