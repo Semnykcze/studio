@@ -34,6 +34,7 @@ interface ImagePromptConfigCardProps {
   isUrlLoading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   anyLoading: boolean;
+  disabled: boolean;
 
   targetModelOptions: { value: TargetModelType; label: string; icon: React.ElementType }[];
   imageTypeOptions: { value: ImageTypeType; label: string; icon: React.ElementType }[];
@@ -64,7 +65,7 @@ interface ImagePromptConfigCardProps {
   onImageUpload: React.ChangeEventHandler<HTMLInputElement>;
   onLoadImageFromUrl: () => Promise<void>;
   onGeneratePrompt: () => Promise<void>;
-  onClearAllInputs: () => void; // New prop
+  onClearAllInputs: () => void; 
   getPreviewText: () => string;
 }
 
@@ -78,6 +79,7 @@ export function ImagePromptConfigCard({
   isUrlLoading,
   fileInputRef,
   anyLoading,
+  disabled,
   targetModelOptions,
   imageTypeOptions,
   aspectRatioOptions,
@@ -103,7 +105,7 @@ export function ImagePromptConfigCard({
   onImageUpload,
   onLoadImageFromUrl,
   onGeneratePrompt,
-  onClearAllInputs, // New prop
+  onClearAllInputs,
   getPreviewText
 }: ImagePromptConfigCardProps) {
 
@@ -199,7 +201,7 @@ export function ImagePromptConfigCard({
         <div className="space-y-4">
           <div>
             <Label htmlFor="target-model-select" className="text-xs font-medium mb-1 block">Target AI Model</Label>
-            <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading}>
+            <Select value={selectedTargetModel} onValueChange={(value: string) => setSelectedTargetModel(value as TargetModelType)} disabled={anyLoading || disabled}>
               {renderSelectTrigger(Lightbulb, "Select target model", selectedTargetModel)}
               <SelectContent>
                 {targetModelOptions.map(opt => (
@@ -215,7 +217,7 @@ export function ImagePromptConfigCard({
 
           <div>
             <Label htmlFor="image-type-select" className="text-xs font-medium mb-1 block">Desired Image Type</Label>
-            <Select value={selectedImageType} onValueChange={(value: string) => setSelectedImageType(value as ImageTypeType)} disabled={anyLoading}>
+            <Select value={selectedImageType} onValueChange={(value: string) => setSelectedImageType(value as ImageTypeType)} disabled={anyLoading || disabled}>
               {renderSelectTrigger(ImageIcon, "Select image type", imageTypeOptions.find(opt => opt.value === selectedImageType)?.label)}
               <SelectContent>
                 {imageTypeOptions.map(opt => (
@@ -231,7 +233,7 @@ export function ImagePromptConfigCard({
 
           <div>
             <Label htmlFor="aspect-ratio-select" className="text-xs font-medium mb-1 block">Desired Aspect Ratio</Label>
-            <Select value={selectedAspectRatio} onValueChange={(value: string) => setSelectedAspectRatio(value as AspectRatioType)} disabled={anyLoading}>
+            <Select value={selectedAspectRatio} onValueChange={(value: string) => setSelectedAspectRatio(value as AspectRatioType)} disabled={anyLoading || disabled}>
               {renderSelectTrigger(Square, "Select aspect ratio", aspectRatioOptions.find(opt => opt.value === selectedAspectRatio)?.label)}
               <SelectContent>
                 {aspectRatioOptions.map(opt => (
@@ -247,7 +249,7 @@ export function ImagePromptConfigCard({
 
           <div>
             <Label htmlFor="language-select" className="text-xs font-medium mb-1 block">Output Language</Label>
-            <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading}>
+            <Select value={selectedLanguage} onValueChange={(value: string) => setSelectedLanguage(value)} disabled={anyLoading || disabled}>
               {renderSelectTrigger(Languages, "Select language", languageOptions.find(l => l.value === selectedLanguage)?.label)}
               <SelectContent>
                 {languageOptions.map(lang => (
@@ -263,7 +265,7 @@ export function ImagePromptConfigCard({
 
           <div>
             <Label htmlFor="prompt-style-select" className="text-xs font-medium mb-1 block">Prompt Style</Label>
-            <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading}>
+            <Select value={selectedPromptStyle} onValueChange={(value: string) => setSelectedPromptStyle(value as PromptStyleType)} disabled={anyLoading || disabled}>
                 {renderSelectTrigger(Paintbrush, "Select prompt style", promptStyleOptions.find(p => p.value === selectedPromptStyle)?.label)}
               <SelectContent>
                 {promptStyleOptions.map(opt => (
@@ -286,7 +288,7 @@ export function ImagePromptConfigCard({
                   id="word-count-slider"
                   min={OVERALL_MIN_WORDS} max={OVERALL_MAX_WORDS} step={5}
                   value={[minWords, maxWords]} onValueChange={onWordCountChange}
-                  disabled={anyLoading}
+                  disabled={anyLoading || disabled}
                   aria-label={`Word count range slider, current range ${minWords} to ${maxWords} words.`}
               />
                 <p className="text-xs text-muted-foreground pt-0.5">Range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
@@ -296,7 +298,7 @@ export function ImagePromptConfigCard({
               id="allow-nsfw-config-switch"
               checked={allowNsfw}
               onCheckedChange={setAllowNsfw}
-              disabled={anyLoading}
+              disabled={anyLoading || disabled}
               aria-label="Toggle to allow potentially NSFW content in prompts"
             />
             <Label htmlFor="allow-nsfw-config-switch" className="text-xs text-muted-foreground cursor-pointer">

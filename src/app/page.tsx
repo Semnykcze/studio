@@ -19,10 +19,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ImagePromptConfigCard } from '@/components/visionary-prompter/ImagePromptConfigCard';
 
 import { analyzeImageGeneratePrompt, type AnalyzeImageGeneratePromptInput } from '@/ai/flows/analyze-image-generate-prompt';
-import { magicPrompt, type MagicPromptInput } from '@/ai/flows/magic-prompt-flow';
-import { translatePrompt, type TranslatePromptInput } from '@/ai/flows/translate-prompt-flow';
-import { extendPrompt, type ExtendPromptInput } from '@/ai/flows/extend-prompt-flow';
-import { analyzeImageStyle, type AnalyzeImageStyleInput, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
+import { magicPrompt } from '@/ai/flows/magic-prompt-flow';
+import { translatePrompt } from '@/ai/flows/translate-prompt-flow';
+import { extendPrompt } from '@/ai/flows/extend-prompt-flow';
+import { analyzeImageStyle, type AnalyzeImageStyleOutput } from '@/ai/flows/analyze-image-style-flow';
 import { generateImageFromPrompt, type GenerateImageFromPromptInput, type GenerateImageFromPromptOutput } from '@/ai/flows/generate-image-from-prompt-flow';
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 import { generateCannyEdgeMap, type GenerateCannyEdgeMapInput, type GenerateCannyEdgeMapOutput } from '@/ai/flows/generate-canny-edge-map-flow';
@@ -34,7 +34,7 @@ import {
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, LightbulbIcon, FileTextIcon, Maximize, Eye, EyeOff, Brush,
   Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle,
-  GitCommitHorizontal, Ban
+  GitCommitHorizontal, Ban, User, Lock
 } from 'lucide-react'; 
 
 const DepthMapCard = dynamic(
@@ -94,6 +94,10 @@ const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 
 export default function VisionaryPrompterPage() {
+  // Auth State - for now, we assume user is logged out.
+  // In a real app, this would come from a context or session.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState<string>('');
@@ -187,6 +191,7 @@ export default function VisionaryPrompterPage() {
   }, []);
 
   useEffect(() => {
+    if (!isLoggedIn) return; // Don't save history if not logged in
     const historyToStore = generationHistory.map(entry => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { imagePreviewUrl, ...rest } = entry; 
@@ -204,9 +209,10 @@ export default function VisionaryPrompterPage() {
     } catch (error) {
       console.error("Error saving history to localStorage:", error);
     }
-  }, [generationHistory]);
+  }, [generationHistory, isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn) return; // Don't save library if not logged in
     try {
         if (promptLibrary.length > 0) {
             localStorage.setItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY, JSON.stringify(promptLibrary));
@@ -218,7 +224,7 @@ export default function VisionaryPrompterPage() {
     } catch (error) {
         console.error("Error saving prompt library from localStorage:", error);
     }
-  }, [promptLibrary]);
+  }, [promptLibrary, isLoggedIn]);
 
   const languageOptions: { value: string; label: string; icon?: React.ElementType }[] = [
     { value: 'English', label: 'English', icon: Globe },
@@ -282,13 +288,9 @@ export default function VisionaryPrompterPage() {
     setEditImagePrompt('');
     setImageSeed('');
     setTransformationInstruction('');
-    // setGeneratedDepthMap(null); // Managed by child component
     setImageStyleAnalysis(null);
     setGeneratedCannyEdgeMap(null);
     setActiveImageInputTab('file');
-    // Optionally reset config params to defaults here if desired
-    // setSelectedTargetModel('Flux.1 Dev'); 
-    // etc.
     toast({ title: "Inputs Cleared", description: "All image inputs and generated content have been reset." });
   };
 
@@ -304,8 +306,7 @@ export default function VisionaryPrompterPage() {
         return;
       }
       
-      // Clear previous image and related generated content when a new image is selected
-      handleClearAllInputs(); // This will clear everything, including generated prompt
+      handleClearAllInputs(); 
       setImageFile(file);
       setImageUrlInput(''); 
       
@@ -324,9 +325,7 @@ export default function VisionaryPrompterPage() {
     }
 
     setIsUrlLoading(true);
-    // Clear previous image and related generated content when a new URL is loaded
-    handleClearAllInputs(); // This will clear everything
-    // setImageUrlInput(imageUrlInput); // Restore the URL input as handleClearAllInputs clears it
+    handleClearAllInputs(); 
 
     try {
       try {
@@ -376,57 +375,59 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No image available", description: "Please upload an image or load from URL first." });
       return;
     }
-    if (minWords > maxWords) {
+    if (minWords > maxWords && isLoggedIn) { // Word count validation only for logged in users
       toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words cannot be greater than Max words." });
       return;
     }
 
     setIsLoading(true);
-    setGeneratedPrompt(''); // Clear previous prompt
-    setNegativePrompt(''); // Clear previous negative prompt
+    setGeneratedPrompt('');
+    setNegativePrompt('');
     setGeneratedImageDataUri(null); 
     setEditImagePrompt('');
     setTransformationInstruction('');
     try {
       const input: AnalyzeImageGeneratePromptInput = {
         photoDataUri: uploadedImage,
-        targetModel: selectedTargetModel,
-        imageType: selectedImageType,
-        aspectRatio: selectedAspectRatio,
-        minWords: minWords,
-        maxWords: maxWords,
-        promptStyle: selectedPromptStyle,
-        outputLanguage: selectedLanguage,
-        allowNsfw: allowNsfw,
+        targetModel: isLoggedIn ? selectedTargetModel : 'Flux.1 Dev',
+        imageType: isLoggedIn ? selectedImageType : 'image',
+        aspectRatio: isLoggedIn ? selectedAspectRatio : '1:1',
+        minWords: isLoggedIn ? minWords : 25,
+        maxWords: isLoggedIn ? maxWords : 150,
+        promptStyle: isLoggedIn ? selectedPromptStyle : 'detailed',
+        outputLanguage: isLoggedIn ? selectedLanguage : 'English',
+        allowNsfw: isLoggedIn ? allowNsfw : false,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
+      
+      if (isLoggedIn) {
+        let sourceDesc = 'Uploaded Image';
+        if (imageFile) {
+          sourceDesc = imageFile.name;
+        } else if (imageUrlInput.trim()) {
+          try { sourceDesc = `URL: ${new URL(imageUrlInput).hostname}`; } catch { sourceDesc = "Image from URL"; }
+        }
 
-      let sourceDesc = 'Uploaded Image';
-      if (imageFile) {
-        sourceDesc = imageFile.name;
-      } else if (imageUrlInput.trim()) {
-        try { sourceDesc = `URL: ${new URL(imageUrlInput).hostname}`; } catch { sourceDesc = "Image from URL"; }
+        const newHistoryEntry: HistoryEntry = {
+          id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
+          timestamp: new Date().toLocaleString(),
+          imagePreviewUrl: uploadedImage, 
+          params: {
+            targetModel: selectedTargetModel,
+            promptStyle: selectedPromptStyle,
+            imageType: selectedImageType,
+            aspectRatio: selectedAspectRatio,
+            minWords: minWords,
+            maxWords: maxWords,
+            outputLanguage: selectedLanguage,
+            photoSourceDescription: sourceDesc,
+            allowNsfw: allowNsfw,
+          },
+          generatedPrompt: result.prompt,
+        };
+        setGenerationHistory(prev => [newHistoryEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
       }
-
-      const newHistoryEntry: HistoryEntry = {
-        id: new Date().toISOString() + Math.random().toString(36).substring(2, 15),
-        timestamp: new Date().toLocaleString(),
-        imagePreviewUrl: uploadedImage, 
-        params: {
-          targetModel: selectedTargetModel,
-          promptStyle: selectedPromptStyle,
-          imageType: selectedImageType,
-          aspectRatio: selectedAspectRatio,
-          minWords: minWords,
-          maxWords: maxWords,
-          outputLanguage: selectedLanguage,
-          photoSourceDescription: sourceDesc,
-          allowNsfw: allowNsfw,
-        },
-        generatedPrompt: result.prompt,
-      };
-      setGenerationHistory(prev => [newHistoryEntry, ...prev].slice(0, MAX_HISTORY_ITEMS));
 
     } catch (error) {
       let errorMessage = "An unknown error occurred.";
@@ -439,8 +440,9 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleMagicPrompt = async () => {
-    if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to enhance" }); return;
+    if (!isLoggedIn || !generatedPrompt) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
     }
     setIsMagicLoading(true);
     try {
@@ -455,8 +457,9 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleExtendPrompt = async () => {
-    if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to extend" }); return;
+    if (!isLoggedIn || !generatedPrompt) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
     }
     setIsExtendingLoading(true);
     try {
@@ -471,8 +474,9 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleTranslatePrompt = async () => {
-    if (!generatedPrompt) {
-      toast({ variant: "destructive", title: "No prompt to translate" }); return;
+    if (!isLoggedIn || !generatedPrompt) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
     }
     setIsTranslateLoading(true);
     try {
@@ -487,6 +491,10 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleTransformPrompt = async () => {
+    if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
+    }
     if (!generatedPrompt.trim()) {
       toast({ variant: "destructive", title: "No Prompt to Transform", description: "Please generate a prompt first." });
       return;
@@ -518,6 +526,10 @@ export default function VisionaryPrompterPage() {
   };
 
   const processImageGeneration = async (promptToUse: string, baseImageUri?: string) => {
+     if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
+    }
     setIsImageGenerating(true);
     if (!baseImageUri) {
         setEditImagePrompt(''); 
@@ -554,6 +566,10 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleTryGenerateImage = async () => {
+    if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
+    }
     if (!generatedPrompt) {
       toast({ variant: "destructive", title: "No prompt available", description: "Please generate a prompt first." });
       return;
@@ -568,6 +584,7 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleRegenerateImage = async () => {
+    if (!isLoggedIn) return;
     if (!generatedPrompt) {
       toast({ variant: "destructive", title: "No prompt available", description: "Cannot regenerate without a base prompt." });
       return;
@@ -582,6 +599,7 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleEditImage = async () => {
+    if (!isLoggedIn) return;
     if (!generatedImageDataUri) {
       toast({ variant: "destructive", title: "No image to edit", description: "Generate an image first." });
       return;
@@ -595,8 +613,7 @@ export default function VisionaryPrompterPage() {
 
 
   const handleSaveGeneratedImage = () => {
-    if (!generatedImageDataUri) {
-      toast({ variant: "destructive", title: "No image to save" });
+    if (!isLoggedIn || !generatedImageDataUri) {
       return;
     }
     const link = document.createElement('a');
@@ -610,6 +627,10 @@ export default function VisionaryPrompterPage() {
   };
   
   const handleGenerateCannyEdgeMap = async () => {
+    if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
+    }
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for Canny edge map generation." }); return;
     }
@@ -637,6 +658,10 @@ export default function VisionaryPrompterPage() {
 
 
   const handleAnalyzeImageStyle = async () => {
+    if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to use this feature." });
+       return;
+    }
     if (!uploadedImage) {
       toast({ variant: "destructive", title: "No image for style analysis" }); return;
     }
@@ -666,16 +691,17 @@ export default function VisionaryPrompterPage() {
   };
 
   const clearHistory = () => {
+    if (!isLoggedIn) return;
     setGenerationHistory([]);
     try { localStorage.removeItem(LOCAL_STORAGE_HISTORY_KEY); } catch (e) {}
     toast({ title: "History cleared." });
   };
 
   const loadFromHistory = (entry: HistoryEntry) => {
-    handleClearAllInputs(); // Clear current state before loading
+    if (!isLoggedIn) return;
+    handleClearAllInputs(); 
     setUploadedImage(entry.imagePreviewUrl || null);
     setImageFile(null); 
-    // Removed attempt to set imageUrlInput from history to avoid complexity with proxying/re-fetching
     setSelectedTargetModel(entry.params.targetModel);
     setSelectedPromptStyle(entry.params.promptStyle);
     setSelectedImageType(entry.params.imageType);
@@ -695,6 +721,10 @@ export default function VisionaryPrompterPage() {
   };
   
   const handleSaveGeneratedPrompt = () => {
+    if (!isLoggedIn) {
+       toast({ variant: "destructive", title: "Feature Unavailable", description: "You must be logged in to save prompts." });
+       return;
+    }
     if (!generatedPrompt.trim()) {
       toast({ variant: "destructive", title: "No prompt to save", description: "Please generate a prompt first." });
       return;
@@ -715,10 +745,10 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleLoadPromptFromLibrary = (promptId: string) => {
+    if (!isLoggedIn) return;
     const promptToLoad = promptLibrary.find(p => p.id === promptId);
     if (promptToLoad) {
       setGeneratedPrompt(promptToLoad.promptText);
-      // Maybe clear negative prompt or other related states? For now, just loads the main prompt.
       setNegativePrompt(''); 
       toast({ title: "Prompt Loaded", description: `"${promptToLoad.name}" loaded into editor.` });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -726,6 +756,7 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleDeletePromptFromLibrary = (promptId: string) => {
+    if (!isLoggedIn) return;
     const promptToDelete = promptLibrary.find(p => p.id === promptId);
     if (promptToDelete && window.confirm(`Are you sure you want to delete "${promptToDelete.name}"?`)) {
         setPromptLibrary(prev => prev.filter(p => p.id !== promptId));
@@ -734,6 +765,7 @@ export default function VisionaryPrompterPage() {
   };
 
   const handleClearPromptLibrary = () => {
+    if (!isLoggedIn) return;
     if (window.confirm("Are you sure you want to delete ALL saved prompts from the library? This cannot be undone.")) {
         setPromptLibrary([]);
         toast({ title: "Prompt Library Cleared" });
@@ -764,6 +796,18 @@ export default function VisionaryPrompterPage() {
           Upload an image, configure parameters, and let AI craft the perfect prompt &amp; analyze its style.
         </p>
       </header>
+        
+      {!isLoggedIn && (
+        <Alert className="mb-6 md:mb-8 border-primary/20">
+          <Lock className="h-4 w-4" />
+          <AlertTitle>You are in Guest Mode</AlertTitle>
+          <AlertDescription className="text-xs">
+            Most features are disabled. You can upload an image and perform a basic prompt generation.
+            Please <a href="/login" className="font-bold underline hover:text-primary">log in</a> or <a href="/register" className="font-bold underline hover:text-primary">register</a> to unlock all features.
+          </AlertDescription>
+        </Alert>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-2 space-y-6 md:space-y-8">
@@ -808,8 +852,10 @@ export default function VisionaryPrompterPage() {
             onImageUpload={handleImageUpload}
             onLoadImageFromUrl={handleLoadImageFromUrl}
             onGeneratePrompt={handleGeneratePrompt}
-            onClearAllInputs={handleClearAllInputs} // New prop
+            onClearAllInputs={handleClearAllInputs} 
             
+            disabled={!isLoggedIn}
+
             getPreviewText={() => {
                 if (imageFile) return `File: ${imageFile.name}`;
                 if (imageUrlInput.trim() && uploadedImage) return `From URL: ${imageUrlInput.substring(0, 40)}...`;
@@ -837,20 +883,20 @@ export default function VisionaryPrompterPage() {
                         size="sm" 
                         onClick={handleTryGenerateImage} 
                         title="Try Generate Image"
-                        disabled={anyLoading || !generatedPrompt} 
+                        disabled={anyLoading || !generatedPrompt || !isLoggedIn} 
                         className="h-7 px-1.5 text-xs" 
                         aria-label="Try Generate Image"
                     >
                         {isImageGenerating && !editImagePrompt && !generatedImageDataUri ? <LoadingSpinner size="0.8rem" /> : <Brush className="h-3.5 w-3.5" />} 
                         <span className="ml-1 hidden sm:inline">Generate</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
+                    <Button variant="ghost" size="sm" onClick={handleMagicPrompt} title="Magic Enhance" disabled={anyLoading || !generatedPrompt || !isLoggedIn} className="h-7 px-1.5 text-xs" aria-label="Magic Enhance Prompt">
                         {isMagicLoading ? <LoadingSpinner size="0.8rem" /> : <Sparkles className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Magic</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleExtendPrompt} title="Extend Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Extend Prompt">
+                    <Button variant="ghost" size="sm" onClick={handleExtendPrompt} title="Extend Prompt" disabled={anyLoading || !generatedPrompt || !isLoggedIn} className="h-7 px-1.5 text-xs" aria-label="Extend Prompt">
                         {isExtendingLoading ? <LoadingSpinner size="0.8rem" /> : <Maximize className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Extend</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Translate Prompt">
+                    <Button variant="ghost" size="sm" onClick={handleTranslatePrompt} title="Translate Prompt" disabled={anyLoading || !generatedPrompt || !isLoggedIn} className="h-7 px-1.5 text-xs" aria-label="Translate Prompt">
                         {isTranslateLoading ? <LoadingSpinner size="0.8rem" /> : <Globe className="h-3.5 w-3.5" />} <span className="ml-1 hidden sm:inline">Translate</span>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleCopyText(generatedPrompt, "Prompt")} title="Copy Prompt" disabled={anyLoading || !generatedPrompt} className="h-7 px-1.5 text-xs" aria-label="Copy Prompt">
@@ -861,7 +907,7 @@ export default function VisionaryPrompterPage() {
                         size="sm"
                         onClick={handleSaveGeneratedPrompt}
                         title="Save current prompt to library"
-                        disabled={anyLoading || !generatedPrompt}
+                        disabled={anyLoading || !generatedPrompt || !isLoggedIn}
                         className="h-7 px-1.5 text-xs"
                         aria-label="Save Prompt to Library"
                     >
@@ -888,7 +934,7 @@ export default function VisionaryPrompterPage() {
                         onChange={(e) => setNegativePrompt(e.target.value)}
                         placeholder="e.g., blurry, ugly, deformed hands, watermark, text, extra limbs..."
                         className="min-h-[70px] text-sm bg-background focus-visible:ring-destructive/50 rounded-md"
-                        disabled={anyLoading || !generatedPrompt}
+                        disabled={anyLoading || !generatedPrompt || !isLoggedIn}
                         aria-label="Negative prompt input"
                     />
                 </div>
@@ -906,13 +952,13 @@ export default function VisionaryPrompterPage() {
                           onChange={(e) => setTransformationInstruction(e.target.value)}
                           placeholder="e.g., 'make it nighttime', 'add a cyberpunk style', 'change the character's clothes to a blue dress'"
                           className="min-h-[70px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
-                          disabled={anyLoading || !generatedPrompt}
+                          disabled={anyLoading || !generatedPrompt || !isLoggedIn}
                           aria-label="Instruction to transform the generated prompt"
                       />
                     </div>
                     <Button
                         onClick={handleTransformPrompt}
-                        disabled={anyLoading || !generatedPrompt || !transformationInstruction.trim()}
+                        disabled={anyLoading || !generatedPrompt || !transformationInstruction.trim() || !isLoggedIn}
                         className="w-full text-sm py-2 rounded-md"
                         variant="outline"
                         size="sm"
@@ -944,7 +990,7 @@ export default function VisionaryPrompterPage() {
                             onChange={(e) => setImageSeed(e.target.value)}
                             placeholder="Auto"
                             className="h-7 w-20 md:w-24 text-xs px-2"
-                            disabled={isImageGenerating}
+                            disabled={isImageGenerating || !isLoggedIn}
                             aria-label="Image generation seed"
                         />
                     </div>
@@ -971,7 +1017,7 @@ export default function VisionaryPrompterPage() {
                                 size="sm" 
                                 onClick={handleRegenerateImage}
                                 title="Regenerate Image"
-                                disabled={isImageGenerating || !generatedPrompt} 
+                                disabled={isImageGenerating || !generatedPrompt || !isLoggedIn} 
                                 className="h-7 px-1.5 text-xs" 
                                 aria-label="Regenerate Image"
                             >
@@ -983,7 +1029,7 @@ export default function VisionaryPrompterPage() {
                                 size="sm" 
                                 onClick={handleSaveGeneratedImage} 
                                 title="Save Image" 
-                                disabled={isImageGenerating || !generatedImageDataUri} 
+                                disabled={isImageGenerating || !generatedImageDataUri || !isLoggedIn} 
                                 className="h-7 px-1.5 text-xs" 
                                 aria-label="Save Image"
                             >
@@ -1008,11 +1054,11 @@ export default function VisionaryPrompterPage() {
                              onChange={(e) => setEditImagePrompt(e.target.value)}
                              placeholder="Describe changes, e.g., 'make the sky purple', 'add a cat on the roof'..."
                              className="min-h-[70px] text-sm bg-background focus-visible:ring-primary/50 rounded-md"
-                             disabled={isImageGenerating}
+                             disabled={isImageGenerating || !isLoggedIn}
                            />
                            <Button
                              onClick={handleEditImage}
-                             disabled={isImageGenerating || !editImagePrompt.trim() || !generatedImageDataUri}
+                             disabled={isImageGenerating || !editImagePrompt.trim() || !generatedImageDataUri || !isLoggedIn}
                              className="w-full text-sm py-2 rounded-md"
                              size="sm"
                              variant="outline"
@@ -1037,16 +1083,17 @@ export default function VisionaryPrompterPage() {
               <CardDescription className="text-sm">Identify artistic style, colors, and mood.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Analyze Image Style">
+              <Button onClick={handleAnalyzeImageStyle} disabled={anyLoading || !uploadedImage || !isLoggedIn} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Analyze Image Style">
                 {isStyleAnalysisLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <Paintbrush className="mr-1.5 h-4 w-4" />} Analyze Style
               </Button>
               {!uploadedImage && !isStyleAnalysisLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable style analysis.</p>)}
+              {!isLoggedIn && uploadedImage && (<p className="text-xs text-muted-foreground text-center py-2">Login to use this feature.</p>)}
               {isStyleAnalysisLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
                   <LoadingSpinner size="1.5rem" message="Analyzing style..." />
                 </div>
               )}
-              {imageStyleAnalysis && !isStyleAnalysisLoading && (
+              {imageStyleAnalysis && !isStyleAnalysisLoading && isLoggedIn && (
                 <div className="space-y-2.5 text-xs animate-fade-in-fast">
                   <div className="p-2.5 bg-muted/50 rounded-md border">
                     <h4 className="font-semibold text-primary/90 mb-0.5 text-sm">Identified Style:</h4>
@@ -1081,7 +1128,7 @@ export default function VisionaryPrompterPage() {
             </CardContent>
           </Card>
 
-          <DepthMapCard uploadedImage={uploadedImage} anyLoading={anyLoading} />
+          <DepthMapCard uploadedImage={uploadedImage} anyLoading={anyLoading || !isLoggedIn} />
 
           <Card className="shadow-md">
             <CardHeader className="border-b">
@@ -1091,16 +1138,17 @@ export default function VisionaryPrompterPage() {
               <CardDescription className="text-sm">Generate a Canny edge map for ControlNet.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
-              <Button onClick={handleGenerateCannyEdgeMap} disabled={anyLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Generate Canny Edge Map">
+              <Button onClick={handleGenerateCannyEdgeMap} disabled={anyLoading || !uploadedImage || !isLoggedIn} className="w-full mb-4 text-sm py-2" variant="outline" aria-label="Generate Canny Edge Map">
                 {isCannyEdgeMapLoading ? <LoadingSpinner size="0.9rem" className="mr-2" /> : <GitCommitHorizontal className="mr-1.5 h-4 w-4" />} Generate Canny Edges
               </Button>
               {!uploadedImage && !isCannyEdgeMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable Canny edge map generation.</p>)}
+              {!isLoggedIn && uploadedImage && (<p className="text-xs text-muted-foreground text-center py-2">Login to use this feature.</p>)}
               {isCannyEdgeMapLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-card/70 backdrop-blur-sm rounded-b-md z-10">
                   <LoadingSpinner size="1.5rem" message="Generating Canny edges..." />
                 </div>
               )}
-              {generatedCannyEdgeMap && !isCannyEdgeMapLoading && (
+              {generatedCannyEdgeMap && !isCannyEdgeMapLoading && isLoggedIn &&(
                 <div className="aspect-video w-full relative rounded-md overflow-hidden border mt-2 animate-fade-in-fast">
                   <Image src={generatedCannyEdgeMap} alt="Generated Canny edge map" layout="fill" objectFit="contain" data-ai-hint="canny edge map"/>
                 </div>
@@ -1112,7 +1160,7 @@ export default function VisionaryPrompterPage() {
         </div>
       </div>
 
-      {generationHistory.length > 0 && (
+      {isLoggedIn && generationHistory.length > 0 && (
         <Card className="w-full mt-8 md:mt-12 shadow-md">
           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b">
             <div className="flex items-center mb-2 sm:mb-0">
@@ -1174,7 +1222,7 @@ export default function VisionaryPrompterPage() {
         </Card>
       )}
 
-      {promptLibrary.length > 0 && (
+      {isLoggedIn && promptLibrary.length > 0 && (
         <Card className="w-full mt-8 md:mt-12 shadow-md">
           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b">
             <div className="flex items-center mb-2 sm:mb-0">

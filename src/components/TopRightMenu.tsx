@@ -18,6 +18,9 @@ import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
 
 export function TopRightMenu() {
+  // In a real app, you'd get this from an Auth Context
+  const isLoggedIn = false; 
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -56,19 +59,32 @@ export function TopRightMenu() {
             <VisionaryBuilderNavButton />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/register" className="flex items-center w-full">
-            <UserPlus className="mr-2 h-4 w-4" />
-            <span>Register</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => alert('Login clicked! (Placeholder for next step)')}
-          className="cursor-pointer"
-        >
-          <User className="mr-2 h-4 w-4" />
-          <span>Login</span>
-        </DropdownMenuItem>
+        
+        {isLoggedIn ? (
+            <DropdownMenuItem
+              onSelect={() => alert('Logout clicked! (Placeholder)')}
+              className="cursor-pointer"
+            >
+              <User className="mr-2 h-4 w-4" />
+              <span>Logout</span>
+            </DropdownMenuItem>
+        ) : (
+          <>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/login" className="flex items-center w-full">
+                <User className="mr-2 h-4 w-4" />
+                <span>Login</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/register" className="flex items-center w-full">
+                <UserPlus className="mr-2 h-4 w-4" />
+                <span>Register</span>
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/admin" className="flex items-center w-full">

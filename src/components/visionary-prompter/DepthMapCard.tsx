@@ -62,11 +62,8 @@ export default function DepthMapCard({ uploadedImage, anyLoading }: DepthMapCard
         try {
             const estimator = await DepthEstimationPipeline.getInstance(handleDepthModelProgress);
             
-            // The pipeline can directly take a URL or data URI
             const output = await estimator(uploadedImage);
-            // output is { predicted_depth: RawImage }
 
-            // The RawImage object has a handy toCanvas method
             const canvas = output.predicted_depth.toCanvas();
             const resultDataUri = canvas.toDataURL('image/png');
 
@@ -86,7 +83,7 @@ export default function DepthMapCard({ uploadedImage, anyLoading }: DepthMapCard
             toast({ variant: "destructive", title: "Depth map generation failed", description: desc });
         } finally {
             setIsDepthMapLoading(false);
-            setDepthModelLoadProgress(null); // Ensure progress bar is hidden after completion/error
+            setDepthModelLoadProgress(null); 
         }
     };
 
@@ -96,7 +93,7 @@ export default function DepthMapCard({ uploadedImage, anyLoading }: DepthMapCard
                 <CardTitle className="text-lg md:text-xl font-headline flex items-center text-primary">
                     <Layers className="mr-2 h-5 w-5" /> Depth Map (Client-Side)
                 </CardTitle>
-                <CardDescription className="text-sm">Generate a depth map using a local model. No credit cost.</CardDescription>
+                <CardDescription className="text-sm">Generate a depth map using a local model.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 md:p-6 relative">
                 <Button onClick={handleGenerateDepthMap} disabled={anyLoading || isDepthMapLoading || !uploadedImage} className="w-full mb-4 text-sm py-2" variant="outline">
@@ -108,6 +105,7 @@ export default function DepthMapCard({ uploadedImage, anyLoading }: DepthMapCard
                     {isDepthMapLoading && depthModelLoadProgress !== null ? 'Loading Model...' : 'Generate Depth Map'}
                 </Button>
                 {!uploadedImage && !isDepthMapLoading && (<p className="text-xs text-muted-foreground text-center py-2">Upload an image to enable depth map generation.</p>)}
+                {anyLoading && !isDepthMapLoading && !isDepthMapLoading && uploadedImage && (<p className="text-xs text-muted-foreground text-center py-2">Login to use this feature.</p>)}
 
                 {isDepthMapLoading && depthModelLoadProgress !== null && (
                     <div className="mt-2 space-y-1.5">
