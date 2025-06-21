@@ -9,7 +9,26 @@ import { Progress } from "@/components/ui/progress";
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { generateDepthMapFromImage } from '@/lib/depth-estimation';
+
+// Use a singleton pattern to create the pipeline so it's only loaded once.
+class DepthEstimationPipeline {
+    static task = 'depth-estimation';
+    static model = 'Xenova/depth-anything-small-hf';
+    static instance: any = null;
+
+    static async getInstance(progress_callback?: (progress: any) => void) {
+        if (this.instance === null) {
+            // Dynamically import the pipeline function. This is crucial for Next.js.
+            const { pipeline } = await import('@xenova/transformers');
+            this.instance = await pipeline(this.task, this.model, { 
+                progress_callback,
+                quantized: true,
+             });
+        }
+        return this.instance;
+    }
+}
+
 
 interface DepthMapCardProps {
     uploadedImage: string | null;
@@ -41,13 +60,29 @@ export default function DepthMapCard({ uploadedImage, anyLoading }: DepthMapCard
         setGeneratedDepthMap(null);
         
         try {
-            const resultDataUri = await generateDepthMapFromImage(uploadedImage, handleDepthModelProgress);
+            const estimator = await DepthEstimationPipeline.getInstance(handleDepthModelProgress);
+            
+            // The pipeline can directly take a URL or data URI
+            const output = await estimator(uploadedImage);
+            // output is { predicted_depth: RawImage }
+
+            // The RawImage object has a handy toCanvas method
+            const canvas = output.predicted_depth.toCanvas();
+            const resultDataUri = canvas.toDataURL('image/png');
+
             setGeneratedDepthMap(resultDataUri);
             toast({ title: "Depth map generated successfully!" });
+
         } catch (error) {
             let desc = "Unknown error during depth map generation.";
-            if (error instanceof Error) desc = error.message;
-            else if (typeof error === 'object' && error && 'message' in error) desc = String((error as {message:string}).message);
+             if (error instanceof Error) {
+                desc = error.message;
+                 if (error.message.includes('deadlock')) {
+                    desc = 'Depth estimation model failed to load. Please refresh the page and try again.';
+                }
+            } else if (typeof error === 'object' && error && 'message' in error) {
+                desc = String((error as {message:string}).message);
+            }
             toast({ variant: "destructive", title: "Depth map generation failed", description: desc });
         } finally {
             setIsDepthMapLoading(false);
