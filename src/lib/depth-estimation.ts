@@ -1,6 +1,7 @@
 'use client';
 
-import { pipeline, RawImage } from '@xenova/transformers';
+// We will import pipeline dynamically to avoid module initialization issues.
+// import { pipeline, RawImage } from '@xenova/transformers';
 
 // Use a singleton pattern to create the pipeline so it's only loaded once.
 class DepthEstimationPipeline {
@@ -10,6 +11,9 @@ class DepthEstimationPipeline {
 
     static async getInstance(progress_callback?: (progress: any) => void) {
         if (this.instance === null) {
+            // Dynamically import the pipeline function. This can help with issues
+            // related to module initialization in some environments like Next.js.
+            const { pipeline } = await import('@xenova/transformers');
             this.instance = await pipeline(this.task, this.model, { 
                 progress_callback,
                 // To save memory and speed up inference, we can quantize the model

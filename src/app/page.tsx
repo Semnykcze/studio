@@ -965,9 +965,9 @@ export default function VisionaryPrompterPage() {
             allowNsfw={allowNsfw}
             setAllowNsfw={setAllowNsfw}
 
-            onImageUpload={onImageUpload}
-            onLoadImageFromUrl={onLoadImageFromUrl}
-            onGeneratePrompt={onGeneratePrompt}
+            onImageUpload={handleImageUpload}
+            onLoadImageFromUrl={handleLoadImageFromUrl}
+            onGeneratePrompt={handleGeneratePrompt}
             onClearAllInputs={handleClearAllInputs} // New prop
             
             getPreviewText={() => {
