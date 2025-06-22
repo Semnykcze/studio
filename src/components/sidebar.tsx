@@ -56,7 +56,7 @@ export function Sidebar() {
                             <item.icon size={20} />
                         </Button>
                         {item.isBeta && (
-                           <span className="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/3 bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full" title="Beta Feature">
+                           <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-sm" title="Beta Feature">
                             BETA
                            </span>
                         )}
