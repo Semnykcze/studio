@@ -10,7 +10,6 @@ import {
   DraftingCompass,
   MessageSquare,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
@@ -20,15 +19,16 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 
 export function AppSidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/visionary-prompter', icon: Wand2, label: 'Visionary Prompter', isBeta: true },
-    { href: '/visionary-chatter', icon: MessageSquare, label: 'Visionary Chatter', isBeta: true },
-    { href: '/visionary-builder', icon: DraftingCompass, label: 'Visionary Builder', isBeta: true },
+    { href: '/visionary-prompter', icon: Wand2, label: 'Visionary Prompter' },
+    { href: '/visionary-chatter', icon: MessageSquare, label: 'Visionary Chatter' },
+    { href: '/visionary-builder', icon: DraftingCompass, label: 'Visionary Builder' },
   ];
 
   return (
@@ -37,7 +37,7 @@ export function AppSidebar() {
         <SidebarHeader className="p-2">
           <SidebarMenuButton
             asChild
-            className="w-full justify-start p-2 rounded-lg bg-primary text-primary-foreground"
+            className="w-full justify-start p-2 rounded-lg bg-foreground text-background hover:bg-foreground/90"
             tooltip={{ children: 'Visionary Suite', side: 'right' }}
           >
             <Link href="/">
@@ -59,9 +59,6 @@ export function AppSidebar() {
                 <Link href={item.href} className="relative">
                   <item.icon size={20} />
                   <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  {item.isBeta && (
-                    <span className="absolute bottom-1 right-1 block h-2 w-2 rounded-full bg-primary ring-1 ring-background" title="Beta Feature" />
-                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -70,6 +67,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <SidebarSeparator className="my-2" />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="w-full justify-start" tooltip={{ children: 'Help & Settings', side: 'right' }}>
