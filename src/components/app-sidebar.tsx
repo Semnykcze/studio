@@ -37,7 +37,7 @@ export function AppSidebar() {
         <SidebarHeader className="p-2">
           <SidebarMenuButton
             asChild
-            className="w-full justify-start p-2 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+            className="w-full p-2 rounded-lg bg-foreground text-background hover:bg-foreground/90"
             tooltip={{ children: 'Visionary Suite', side: 'right' }}
           >
             <Link href="/">
@@ -54,7 +54,6 @@ export function AppSidebar() {
                 asChild
                 isActive={pathname === item.href}
                 tooltip={{ children: item.label, side: 'right' }}
-                className="w-full justify-start"
               >
                 <Link href={item.href} className="relative">
                   <item.icon size={20} />
@@ -70,13 +69,13 @@ export function AppSidebar() {
         <SidebarSeparator className="my-2" />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="w-full justify-start" tooltip={{ children: 'Help & Settings', side: 'right' }}>
+            <SidebarMenuButton tooltip={{ children: 'Help & Settings', side: 'right' }}>
               <LifeBuoy size={20} />
               <span className="group-data-[collapsible=icon]:hidden">Help & Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="w-full justify-start" tooltip={{ children: 'Login/Register', side: 'right' }}>
+            <SidebarMenuButton asChild tooltip={{ children: 'Login/Register', side: 'right' }}>
               <Link href="/login">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="https://placehold.co/100x100.png" alt="User" data-ai-hint="person face" />
