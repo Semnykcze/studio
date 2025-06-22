@@ -34,7 +34,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <SidebarHeader>
+        <SidebarHeader className="p-2">
           <SidebarMenuButton
             asChild
             className="w-full justify-start p-2 rounded-lg bg-primary text-primary-foreground"
@@ -60,9 +60,7 @@ export function AppSidebar() {
                   <item.icon size={20} />
                   <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                   {item.isBeta && (
-                    <span className="absolute bottom-1 right-2 border border-primary/50 bg-background/10 backdrop-blur-sm text-primary/90 text-[9px] font-medium px-1 py-px rounded-[1.5px] group-data-[collapsible=icon]:hidden" title="Beta Feature">
-                      BETA
-                    </span>
+                    <span className="absolute bottom-1 right-1 block h-2 w-2 rounded-full bg-primary ring-1 ring-background" title="Beta Feature" />
                   )}
                 </Link>
               </SidebarMenuButton>
