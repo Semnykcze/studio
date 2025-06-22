@@ -859,7 +859,7 @@ export default function VisionaryPrompterPage() {
             setAllowNsfw={setAllowNsfw}
 
             onImageUpload={handleImageUpload}
-            onLoadImageFromUrl={onLoadImageFromUrl}
+            onLoadImageFromUrl={handleLoadImageFromUrl}
             onGeneratePrompt={handleGeneratePrompt}
             onClearAllInputs={handleClearAllInputs} 
             
@@ -1289,3 +1289,5 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
+
+    
