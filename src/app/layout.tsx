@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppSidebar } from '@/components/app-sidebar';
 import { MobileHeader } from '@/components/mobile-header';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: 'Visionary Suite', 
@@ -25,16 +26,18 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen">
-        <SidebarProvider defaultOpen={false}>
-          <AppSidebar />
-          <div className="md:pl-[var(--sidebar-width-icon)] group-data-[state=expanded]/sidebar-wrapper:md:pl-[var(--sidebar-width)] transition-[padding-left] ease-linear duration-200">
-            <MobileHeader />
-            <main className="h-screen overflow-y-auto">
-              {children}
-            </main>
-          </div>
-        </SidebarProvider>
-        <Toaster />
+        <AuthProvider>
+          <SidebarProvider defaultOpen={false}>
+            <AppSidebar />
+            <div className="md:pl-[var(--sidebar-width-icon)] group-data-[state=expanded]/sidebar-wrapper:md:pl-[var(--sidebar-width)] transition-[padding-left] ease-linear duration-200">
+              <MobileHeader />
+              <main className="h-screen overflow-y-auto">
+                {children}
+              </main>
+            </div>
+          </SidebarProvider>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

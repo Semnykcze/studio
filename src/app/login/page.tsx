@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import Link from 'next/link';
 import { LogIn } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const { setUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,13 +46,14 @@ export default function LoginPage() {
         throw new Error(data.error || 'Something went wrong');
       }
 
+      setUser(data.user);
+
       toast({
         title: 'Login Successful!',
         description: `Welcome back, ${data.user.username}!`,
       });
-      // Here you would typically set the user in a global state/context
-      // For now, we redirect to the homepage.
-      router.push('/'); 
+      
+      router.push('/visionary-prompter'); 
 
     } catch (err: any) {
       setError(err.message);

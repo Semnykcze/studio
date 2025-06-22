@@ -18,6 +18,7 @@ import {
     ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
 
 const suggestionPrompts = [
     {
@@ -42,6 +43,7 @@ const suggestionPrompts = [
 export default function VisionaryChatterPage() {
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -74,7 +76,7 @@ export default function VisionaryChatterPage() {
        <div className="flex-1 flex items-center justify-center">
             <div className="w-full max-w-4xl px-6 text-center">
                 <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                    Hi there, John
+                    Hi there, {user?.username || 'Guest'}
                     <br/>
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
                        What would you like to know?

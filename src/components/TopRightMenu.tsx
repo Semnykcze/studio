@@ -11,15 +11,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Menu, Settings, User, UserPlus } from 'lucide-react';
+import { Menu, Settings, User, UserPlus, LogOut } from 'lucide-react';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { WhatsNewButton } from '@/components/whats-new-button';
 import { AppSwitcherButton } from '@/components/app-switcher-button';
 import { VisionaryBuilderNavButton } from '@/components/visionary-builder-nav-button';
+import { useAuth } from '@/context/AuthContext';
 
 export function TopRightMenu() {
-  // In a real app, you'd get this from an Auth Context
-  const isLoggedIn = false; 
+  const { user, logout } = useAuth();
+  const isLoggedIn = !!user;
 
   return (
     <DropdownMenu>
@@ -62,10 +63,10 @@ export function TopRightMenu() {
         
         {isLoggedIn ? (
             <DropdownMenuItem
-              onSelect={() => alert('Logout clicked! (Placeholder)')}
+              onSelect={logout}
               className="cursor-pointer"
             >
-              <User className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Logout</span>
             </DropdownMenuItem>
         ) : (

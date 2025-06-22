@@ -27,7 +27,7 @@ import { generateImageFromPrompt, type GenerateImageFromPromptInput, type Genera
 import { transformPrompt, type TransformPromptInput } from '@/ai/flows/transform-prompt-flow';
 import { generateCannyEdgeMap, type GenerateCannyEdgeMapInput, type GenerateCannyEdgeMapOutput } from '@/ai/flows/generate-canny-edge-map-flow';
 
-
+import { useAuth } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/loading-spinner';
 import { 
   Copy, Check, Image as ImageIconLucide, Wand2, BrainCircuit, SlidersHorizontal, 
@@ -94,9 +94,8 @@ const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 
 export default function VisionaryPrompterPage() {
-  // Auth State - for now, we assume user is logged out.
-  // In a real app, this would come from a context or session.
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
 
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -144,6 +143,10 @@ export default function VisionaryPrompterPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!isLoggedIn) {
+        setGenerationHistory([]);
+        return;
+    };
     try {
       const storedHistoryJson = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
       if (storedHistoryJson) {
@@ -173,7 +176,13 @@ export default function VisionaryPrompterPage() {
         console.error("Failed to remove corrupted history from localStorage:", removeError);
       }
     }
+  }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+        setPromptLibrary([]);
+        return;
+    }
     try {
         const storedLibraryJson = localStorage.getItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY);
         if (storedLibraryJson) {
@@ -188,10 +197,10 @@ export default function VisionaryPrompterPage() {
             console.error("Failed to remove corrupted prompt library from localStorage:", removeError);
         }
     }
-  }, []);
+  }, [isLoggedIn]);
 
   useEffect(() => {
-    if (!isLoggedIn) return; // Don't save history if not logged in
+    if (!isLoggedIn) return;
     const historyToStore = generationHistory.map(entry => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { imagePreviewUrl, ...rest } = entry; 
@@ -212,7 +221,7 @@ export default function VisionaryPrompterPage() {
   }, [generationHistory, isLoggedIn]);
 
   useEffect(() => {
-    if (!isLoggedIn) return; // Don't save library if not logged in
+    if (!isLoggedIn) return;
     try {
         if (promptLibrary.length > 0) {
             localStorage.setItem(LOCAL_STORAGE_PROMPT_LIBRARY_KEY, JSON.stringify(promptLibrary));
@@ -375,7 +384,7 @@ export default function VisionaryPrompterPage() {
       toast({ variant: "destructive", title: "No image available", description: "Please upload an image or load from URL first." });
       return;
     }
-    if (minWords > maxWords && isLoggedIn) { // Word count validation only for logged in users
+    if (isLoggedIn && minWords > maxWords) { // Word count validation only for logged in users
       toast({ variant: "destructive", title: "Invalid Word Count", description: "Min words cannot be greater than Max words." });
       return;
     }
@@ -500,7 +509,7 @@ export default function VisionaryPrompterPage() {
       return;
     }
     if (!transformationInstruction.trim()) {
-      toast({ variant: "destructive", title: "No Transformation Instruction", description: "Please enter how you want to change the prompt." });
+      toast({ variant: "destructive", title: "No Transformation Instruction", description: "Please describe how you want to change the prompt." });
       return;
     }
 
@@ -850,7 +859,7 @@ export default function VisionaryPrompterPage() {
             setAllowNsfw={setAllowNsfw}
 
             onImageUpload={handleImageUpload}
-            onLoadImageFromUrl={handleLoadImageFromUrl}
+            onLoadImageFromUrl={onLoadImageFromUrl}
             onGeneratePrompt={handleGeneratePrompt}
             onClearAllInputs={handleClearAllInputs} 
             

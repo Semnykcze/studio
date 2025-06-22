@@ -1,10 +1,15 @@
 
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wand2, MessageSquare, DraftingCompass, ArrowRight } from 'lucide-react';
+import { Wand2, MessageSquare, DraftingCompass, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LandingPage() {
+  const { user } = useAuth();
+
   const features = [
     {
       icon: Wand2,
@@ -48,11 +53,19 @@ export default function LandingPage() {
                     Get Started <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="lg">
-                  <Link href="/login">
-                    Login / Register
-                  </Link>
-                </Button>
+                 {user ? (
+                  <Button asChild variant="outline" size="lg">
+                    <Link href="/visionary-prompter">
+                      Go to App <LayoutDashboard className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" size="lg">
+                    <Link href="/login">
+                      Login / Register
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
           </div>
