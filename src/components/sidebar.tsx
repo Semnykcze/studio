@@ -23,9 +23,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/visionary-prompter', icon: Wand2, label: 'Visionary Prompter' },
-    { href: '/visionary-chatter', icon: MessageSquare, label: 'Visionary Chatter' },
-    { href: '/visionary-builder', icon: DraftingCompass, label: 'Visionary Builder' },
+    { href: '/visionary-prompter', icon: Wand2, label: 'Visionary Prompter', isBeta: true },
+    { href: '/visionary-chatter', icon: MessageSquare, label: 'Visionary Chatter', isBeta: true },
+    { href: '/visionary-builder', icon: DraftingCompass, label: 'Visionary Builder', isBeta: true },
   ];
 
   return (
@@ -47,7 +47,7 @@ export function Sidebar() {
           {navItems.map(item => (
              <Tooltip key={item.href}>
                 <TooltipTrigger asChild>
-                    <Link href={item.href}>
+                    <Link href={item.href} className="relative">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -55,9 +55,17 @@ export function Sidebar() {
                         >
                             <item.icon size={20} />
                         </Button>
+                        {item.isBeta && (
+                           <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-primary ring-1 ring-card" title="Beta Feature">
+                            <span className="sr-only">Beta Feature</span>
+                           </span>
+                        )}
                     </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
+                <TooltipContent side="right">
+                  {item.label}
+                  {item.isBeta && <span className="text-primary/80 ml-1.5">(Beta)</span>}
+                </TooltipContent>
              </Tooltip>
           ))}
         </div>
