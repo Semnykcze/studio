@@ -56,8 +56,8 @@ export function Sidebar() {
                             <item.icon size={20} />
                         </Button>
                         {item.isBeta && (
-                           <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-primary ring-1 ring-card" title="Beta Feature">
-                            <span className="sr-only">Beta Feature</span>
+                           <span className="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/3 bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full" title="Beta Feature">
+                            BETA
                            </span>
                         )}
                     </Link>
