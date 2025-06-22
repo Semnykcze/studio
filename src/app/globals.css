@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,31 +9,31 @@ body {
 
 @layer base {
   :root {
-    --background: 240 20% 97%; /* Slightly lighter background */
+    --background: 240 8% 98%; /* Lighter, cooler gray background */
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 256 40% 65%; /* Made primary slightly less saturated for minimalism */
-    --primary-foreground: 256 40% 98%; 
+    --primary: 262 80% 58%; /* Vibrant purple */
+    --primary-foreground: 0 0% 100%; 
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 268 80% 88%; /* Made accent slightly less saturated */
-    --accent-foreground: 268 80% 15%; 
+    --accent: 240 8% 95%; /* Lighter accent for subtle hovers */
+    --accent-foreground: 240 5.9% 10%; 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 92%; /* Softer border */
-    --input: 240 5.9% 92%; /* Softer input border */
-    --ring: 256 40% 65%; 
+    --border: 240 5.9% 90%; /* Softer border */
+    --input: 240 5.9% 90%; /* Softer input border */
+    --ring: 262 80% 58%; 
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.3rem; /* Reduced radius for a sharper look */
+    --radius: 0.5rem; /* Slightly larger radius for a softer look */
 
     --sidebar-background: 240 10% 98%; 
     --sidebar-foreground: 240 10% 20%; 
@@ -45,25 +46,25 @@ body {
   }
 
   .dark {
-    --background: 240 10% 5%; /* Darker background for dark mode */
+    --background: 240 4% 10%; /* Darker background */
     --foreground: 0 0% 98%;
-    --card: 240 10% 8%; /* Slightly lighter card for dark mode */
+    --card: 240 4% 14%; /* Slightly lighter card for dark mode */
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 8%;
+    --popover: 240 4% 14%;
     --popover-foreground: 0 0% 98%;
-    --primary: 256 40% 70%; 
-    --primary-foreground: 256 40% 15%; 
+    --primary: 262 85% 70%; /* Vibrant purple for dark mode */
+    --primary-foreground: 262 85% 10%; 
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 268 80% 85%; 
-    --accent-foreground: 268 80% 15%; 
+    --accent: 240 4% 18%; /* Darker accent */
+    --accent-foreground: 0 0% 98%; 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 18%; /* Softer border for dark mode */
-    --input: 240 3.7% 18%; /* Softer input border for dark mode */
-    --ring: 256 40% 70%; 
+    --border: 240 3.7% 20%; /* Softer border for dark mode */
+    --input: 240 3.7% 20%; /* Softer input border for dark mode */
+    --ring: 262 85% 70%; 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
