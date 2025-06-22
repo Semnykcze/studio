@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -14,7 +13,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -33,21 +31,21 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarContent>
-        <SidebarHeader className="p-2">
-          <SidebarMenuButton
-            asChild
-            className="w-full p-2 rounded-lg bg-foreground text-background hover:bg-foreground/90"
-            tooltip={{ children: 'Visionary Suite', side: 'right' }}
-          >
-            <Link href="/">
-              <SquareTerminal size={24} />
-              <span className="group-data-[collapsible=icon]:hidden">Visionary Suite</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarHeader>
-
+      <SidebarContent className="p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              className="p-2 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+              tooltip={{ children: 'Visionary Suite', side: 'right' }}
+            >
+              <Link href="/">
+                <SquareTerminal size={24} />
+                <span className="group-data-[collapsible=icon]:hidden">Visionary Suite</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          
           {navItems.map(item => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
