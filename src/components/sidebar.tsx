@@ -5,12 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   SquareTerminal,
-  Plus,
-  Search,
-  MessageSquare,
   LifeBuoy,
   Wand2,
-  DraftingCompass
+  DraftingCompass,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,24 +43,6 @@ export function Sidebar() {
             <TooltipContent side="right">Visionary Suite</TooltipContent>
           </Tooltip>
           
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-accent">
-                <Plus size={20} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">New</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-accent">
-                <Search size={20} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Search</TooltipContent>
-          </Tooltip>
-
           {/* Navigation Items */}
           {navItems.map(item => (
              <Tooltip key={item.href}>
