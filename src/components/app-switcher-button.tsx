@@ -10,13 +10,13 @@ export function AppSwitcherButton() {
   const pathname = usePathname();
 
   const isChatterPage = pathname === '/visionary-chatter';
-  const isPrompterPage = pathname === '/';
+  const isPrompterPage = pathname === '/visionary-prompter';
 
   if (!isChatterPage && !isPrompterPage) {
     return null; // Don't render the button on other pages
   }
 
-  const targetPath = isChatterPage ? '/' : '/visionary-chatter';
+  const targetPath = isChatterPage ? '/visionary-prompter' : '/visionary-chatter';
   const IconToDisplay = isChatterPage ? Wand2 : MessageSquare;
   const buttonTitle = isChatterPage ? 'Switch to Visionary Prompter' : 'Switch to Visionary Chatter';
   const ariaLabel = buttonTitle;

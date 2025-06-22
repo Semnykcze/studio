@@ -390,7 +390,7 @@ export default function VisionaryBuilderPage() {
         <div className="container mx-auto flex flex-col sm:flex-row justify-center items-center gap-x-4 gap-y-2">
             <p>&copy; {new Date().getFullYear()} Visionary Builder. AI-Powered Creativity.</p>
             <nav className="flex gap-x-3">
-              <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5">
+              <Link href="/visionary-prompter" className="hover:text-primary transition-colors flex items-center gap-1.5">
                  <Wand2 size={14} /> Visionary Prompter
               </Link>
               <Link href="/visionary-chatter" className="hover:text-primary transition-colors flex items-center gap-1.5">

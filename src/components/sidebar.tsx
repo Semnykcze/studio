@@ -23,7 +23,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/', icon: Wand2, label: 'Visionary Prompter' },
+    { href: '/visionary-prompter', icon: Wand2, label: 'Visionary Prompter' },
     { href: '/visionary-chatter', icon: MessageSquare, label: 'Visionary Chatter' },
     { href: '/visionary-builder', icon: DraftingCompass, label: 'Visionary Builder' },
   ];
