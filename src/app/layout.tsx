@@ -2,7 +2,9 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { Sidebar } from '@/components/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
+import { MobileHeader } from '@/components/mobile-header';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 export const metadata: Metadata = {
   title: 'Visionary Suite', 
@@ -22,11 +24,16 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background text-foreground min-h-screen flex">
-        <Sidebar />
-        <main className="flex-1 h-screen overflow-y-auto">
-          {children}
-        </main>
+      <body className="font-body antialiased bg-background text-foreground min-h-screen">
+        <SidebarProvider>
+          <AppSidebar />
+          <div className="md:pl-[var(--sidebar-width-icon)] group-data-[state=expanded]/sidebar-wrapper:md:pl-[var(--sidebar-width)] transition-[padding-left] ease-linear duration-200">
+            <MobileHeader />
+            <main className="h-screen overflow-y-auto">
+              {children}
+            </main>
+          </div>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>
