@@ -77,32 +77,31 @@ const generateImageFromPromptFlow = ai.defineFlow(
         },
       });
 
-      if (!media || !media.url) {
-        let errorMessage = `Image ${operationType} failed to produce an image.`;
-        if (text) {
-            const lowerText = text.toLowerCase();
-            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create')) {
-                errorMessage = `The image could not be ${operationType === "editing" ? "edited" : "generated"}. Model response: "${text}". This may be due to safety policies, image content, or other restrictions. Try adjusting your prompt or enabling NSFW if appropriate.`;
-            } else {
-                errorMessage = `Image ${operationType} failed. Model response: "${text}"`;
-            }
-        } else if (!text && (error as any)?.message?.includes('No valid candidates returned')) {
-            errorMessage = `Image ${operationType} failed: No valid candidates returned from the model. This can be due to image content, prompt complexity, or internal model policies. Consider simplifying your prompt or trying a different base image if editing.`;
-        }
-        console.warn(`Image ${operationType} did not return media. Text response from model (if any):`, text);
-        throw new Error(errorMessage);
+      if (media?.url) {
+        return { imageDataUri: media.url };
       }
 
-      return { imageDataUri: media.url };
+      // If we are here, media is missing. We need to create a good error message.
+      let errorMessage = `Image ${operationType} failed to produce an image.`;
+      if (text) {
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create') || lowerText.includes('no valid candidates')) {
+          errorMessage = `The image could not be ${operationType === "editing" ? "edited" : "generated"}. This may be due to safety policies or content restrictions. Try adjusting your prompt or relaxing the safety filters.`;
+        } else {
+          errorMessage = `Image ${operationType} failed. AI response: "${text}"`;
+        }
+      } else {
+        errorMessage = `Image ${operationType} failed: The AI model did not produce a valid image, possibly due to the prompt or internal policies. Try simplifying your prompt or relaxing safety filters.`;
+      }
+      throw new Error(errorMessage);
+
     } catch (error: any) {
       console.error(`Error in generateImageFromPromptFlow during ${operationType}:`, error);
       let finalErrorMessage = `Image ${operationType} failed: ${error.message || 'Unknown error'}`;
-      if (error.message) {
+      if (error?.message) {
         const lowerMessage = error.message.toLowerCase();
-        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy')) {
-          finalErrorMessage = `The image ${operationType} request was possibly affected by safety filters or content policies. Try adjusting your prompt or enabling NSFW if appropriate.`;
-        } else if (lowerMessage.includes('no valid candidates returned')) {
-           finalErrorMessage = `Image ${operationType} failed: The AI model did not produce a valid image, possibly due to the nature of the input image, prompt complexity, or internal model policies. Try a different image or simplify your prompt.`;
+        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy') || lowerMessage.includes('no valid candidates returned')) {
+          finalErrorMessage = `The image ${operationType} request was blocked, likely by safety filters. Try adjusting your prompt or relaxing the safety filters.`;
         } else if (lowerMessage.includes('deadline_exceeded')) {
            finalErrorMessage = `Image ${operationType} failed: The request to the AI model timed out. Please try again later.`;
         }
@@ -111,4 +110,3 @@ const generateImageFromPromptFlow = ai.defineFlow(
     }
   }
 );
-

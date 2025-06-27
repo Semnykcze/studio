@@ -65,29 +65,30 @@ The output image characteristics MUST be:
         },
       });
 
-      if (!media || !media.url) {
-        let errorMessage = 'Canny edge map generation failed to produce an image.';
-         if (text) { 
-            const lowerText = text.toLowerCase();
-            if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create') || lowerText.includes('no valid candidates')) {
-                errorMessage = `The Canny edge map could not be generated. Model response: "${text}". This may be due to safety policies, image content, or other restrictions.`;
-            } else {
-                errorMessage = `Canny edge map generation failed. Model response: "${text}"`;
-            }
-        }
-        throw new Error(errorMessage);
+      if (media?.url) {
+        return { cannyEdgeMapDataUri: media.url };
       }
 
-      return { cannyEdgeMapDataUri: media.url };
+      let errorMessage = 'Canny edge map generation failed to produce an image.';
+      if (text) {
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('safety') || lowerText.includes('policy') || lowerText.includes('cannot generate') || lowerText.includes('unable to create') || lowerText.includes('no valid candidates')) {
+          errorMessage = `The Canny edge map could not be generated due to safety policies or content restrictions. Try a different image.`;
+        } else {
+          errorMessage = `Canny edge map generation failed. AI response: "${text}"`;
+        }
+      } else {
+         errorMessage = `Canny edge map generation failed: The AI model did not produce a valid image, possibly due to the input image or internal policies.`;
+      }
+      throw new Error(errorMessage);
+
     } catch (error: any) {
       console.error('Error in generateCannyEdgeMapFlow:', error);
       let finalErrorMessage = `Canny edge map generation failed: ${error.message || 'Unknown error'}`;
-       if (error.message) {
+       if (error?.message) {
         const lowerMessage = error.message.toLowerCase();
-        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy')) {
-          finalErrorMessage = 'The Canny edge map generation request was possibly affected by safety filters or content policies. Try a different image.';
-        } else if (lowerMessage.includes('no valid candidates returned')) {
-          finalErrorMessage = 'Canny edge map generation failed: The AI model did not produce a valid image, possibly due to the nature of the input image or internal model policies. Try a different image.';
+        if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy') || lowerMessage.includes('no valid candidates returned')) {
+          finalErrorMessage = 'The Canny edge map generation was blocked, likely by safety filters. Try a different image.';
         } else if (lowerMessage.includes('deadline_exceeded')) {
           finalErrorMessage = 'Canny edge map generation failed: The request to the AI model timed out. Please try again later.';
         }
@@ -96,4 +97,3 @@ The output image characteristics MUST be:
     }
   }
 );
-

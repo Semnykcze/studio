@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/loading-spinner';
-import type { TargetModelType, PromptStyleType, ImageTypeType, AspectRatioType } from '@/app/page';
+import type { TargetModelType, PromptStyleType, ImageTypeType, AspectRatioType } from '@/app/visionary-prompter/page';
 
 import {
   UploadCloud, Wand2, Settings2, Lightbulb, ImageIcon, Camera, AppWindow, PencilRuler,
@@ -293,17 +293,23 @@ export function ImagePromptConfigCard({
               />
                 <p className="text-xs text-muted-foreground pt-0.5">Range: {OVERALL_MIN_WORDS}-{OVERALL_MAX_WORDS}.</p>
           </div>
-          <div className="flex items-center space-x-2 pt-2">
-            <Switch
-              id="allow-nsfw-config-switch"
-              checked={allowNsfw}
-              onCheckedChange={setAllowNsfw}
-              disabled={anyLoading || disabled}
-              aria-label="Toggle to allow potentially NSFW content in prompts"
-            />
-            <Label htmlFor="allow-nsfw-config-switch" className="text-xs text-muted-foreground cursor-pointer">
-              Allow Potentially NSFW Content
-            </Label>
+          
+          <div className="space-y-1.5 rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="allow-nsfw-config-switch" className="flex flex-col space-y-0.5">
+                <span className="font-medium text-sm">Relax Safety Filters</span>
+              </Label>
+              <Switch
+                id="allow-nsfw-config-switch"
+                checked={allowNsfw}
+                onCheckedChange={setAllowNsfw}
+                disabled={anyLoading || disabled}
+                aria-label="Toggle to relax safety filters"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Helps avoid "No valid candidates" errors by disabling most content filters. Use with caution.
+            </p>
           </div>
         </div>
       </CardContent>

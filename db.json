@@ -9,6 +9,16 @@
       "isAdmin": false,
       "history": [],
       "createdAt": "2025-06-21T23:33:32.505Z"
+    },
+    {
+      "id": "65cbbf2b-7ce9-490b-bd91-a9bb177c3151",
+      "username": "Nyko",
+      "passwordHash": "$2a$10$xENxRsxRVnOHrLnHuJCZxu2hkmHEm0vj/9StrE/qqUiLLHXCG9j.m",
+      "credits": 100,
+      "isPremium": false,
+      "isAdmin": false,
+      "history": [],
+      "createdAt": "2025-06-22T01:35:44.219Z"
     }
   ]
 }

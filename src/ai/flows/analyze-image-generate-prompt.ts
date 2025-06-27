@@ -126,8 +126,24 @@ const analyzeImageGeneratePromptFlow = ai.defineFlow(
       ];
     }
 
-    const {output} = await analyzeImageGeneratePromptPrompt(input, {model, config: { safetySettings }});
-    return output!;
+    try {
+      const {output} = await analyzeImageGeneratePromptPrompt(input, {model, config: { safetySettings }});
+      if (!output?.prompt) {
+          throw new Error("The AI failed to generate a valid prompt. Try adjusting the parameters or relaxing the safety filters.");
+      }
+      return output;
+    } catch (error: any) {
+        console.error("Error in analyzeImageGeneratePromptFlow:", error);
+        let finalErrorMessage = `Error generating prompt: ${error.message || 'Unknown error'}`;
+        if (error?.message) {
+            const lowerMessage = error.message.toLowerCase();
+            if (lowerMessage.includes('filter') || lowerMessage.includes('safety') || lowerMessage.includes('policy') || lowerMessage.includes('no valid candidates returned')) {
+                finalErrorMessage = `Prompt generation was blocked, likely by safety filters. Try a different image or relax the safety filters.`;
+            } else if (lowerMessage.includes('deadline_exceeded')) {
+                finalErrorMessage = `Prompt generation failed: The request to the AI model timed out. Please try again later.`;
+            }
+        }
+        throw new Error(finalErrorMessage);
+    }
   }
 );
-
