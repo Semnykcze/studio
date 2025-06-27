@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   SquareTerminal,
-  LifeBuoy,
+  Settings,
   Wand2,
   DraftingCompass,
   MessageSquare,
@@ -76,9 +76,11 @@ export function AppSidebar() {
         <SidebarSeparator className="my-2" />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="h-12 w-12 rounded-2xl justify-center" tooltip={{ children: 'Help & Settings', side: 'right' }}>
-              <LifeBuoy size={22} />
-              <span className="group-data-[collapsible=icon]:hidden">Help & Settings</span>
+            <SidebarMenuButton asChild className="h-12 w-12 rounded-2xl justify-center" tooltip={{ children: 'Settings', side: 'right' }}>
+              <Link href="/admin">
+                <Settings size={22} />
+                <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           
