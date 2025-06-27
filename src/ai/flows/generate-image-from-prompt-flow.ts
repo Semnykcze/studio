@@ -16,6 +16,7 @@ const GenerateImageFromPromptInputSchema = z.object({
   prompt: z.string().describe('The text prompt to generate an image from, or to guide editing if baseImageDataUri is provided.'),
   baseImageDataUri: z.string().optional().describe("Optional base image (as data URI) to be edited using the prompt. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
   allowNsfw: z.boolean().optional().default(false).describe('Whether to relax safety settings for potentially NSFW content.'),
+  developerDisableAllSafetyFilters: z.boolean().optional().default(false).describe('If true, overrides all other settings to completely disable safety filters. For developer use.'),
 });
 export type GenerateImageFromPromptInput = z.infer<typeof GenerateImageFromPromptInputSchema>;
 
@@ -35,20 +36,29 @@ const generateImageFromPromptFlow = ai.defineFlow(
     outputSchema: GenerateImageFromPromptOutputSchema,
   },
   async (input) => {
-    let safetySettings: SafetySetting[] | undefined = [
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ];
+    let safetySettings: SafetySetting[] | undefined;
 
-    if (input.allowNsfw) {
+    if (input.developerDisableAllSafetyFilters) {
+        safetySettings = [
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        ];
+    } else if (input.allowNsfw) {
       safetySettings = [
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
       ];
+    } else {
+        safetySettings = [
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        ];
     }
 
     let promptPayload: string | Part[];

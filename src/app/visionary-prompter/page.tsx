@@ -34,7 +34,7 @@ import {
   Paintbrush, Languages, History, Trash2, DownloadCloud, Sparkles, Globe, 
   Edit3, Layers, Palette, Info, Film, Aperture, Shapes, Settings2, LightbulbIcon, FileTextIcon, Maximize, Eye, EyeOff, Brush,
   Camera, AppWindow, PencilRuler, SquareIcon, RectangleVerticalIcon, RectangleHorizontalIcon, RefreshCw, PencilLine, Link as LinkIcon, FileUp, Save, Bookmark, ArrowUpCircle,
-  GitCommitHorizontal, Ban, User, Lock
+  GitCommitHorizontal, Ban, User, Lock, AlertTriangle
 } from 'lucide-react'; 
 
 const DepthMapCard = dynamic(
@@ -90,6 +90,7 @@ export interface SavedPromptEntry {
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_HISTORY_KEY = 'visionaryPrompterHistory';
 const LOCAL_STORAGE_PROMPT_LIBRARY_KEY = 'visionaryPrompterLibrary';
+const DEV_FILTERS_OFF_KEY = 'visionary-dev-filters-off';
 const OVERALL_MIN_WORDS = 10;
 const OVERALL_MAX_WORDS = 300;
 
@@ -113,6 +114,7 @@ export default function VisionaryPrompterPage() {
   const [maxWords, setMaxWords] = useState<number>(150);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [allowNsfw, setAllowNsfw] = useState<boolean>(false); 
+  const [devFiltersDisabled, setDevFiltersDisabled] = useState(false);
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUrlLoading, setIsUrlLoading] = useState<boolean>(false);
@@ -143,6 +145,9 @@ export default function VisionaryPrompterPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const filtersOff = localStorage.getItem(DEV_FILTERS_OFF_KEY) === 'true';
+    setDevFiltersDisabled(filtersOff);
+
     if (!isLoggedIn) {
         setGenerationHistory([]);
         return;
@@ -406,6 +411,7 @@ export default function VisionaryPrompterPage() {
         promptStyle: isLoggedIn ? selectedPromptStyle : 'detailed',
         outputLanguage: isLoggedIn ? selectedLanguage : 'English',
         allowNsfw: isLoggedIn ? allowNsfw : false,
+        developerDisableAllSafetyFilters: devFiltersDisabled,
       };
       const result = await analyzeImageGeneratePrompt(input);
       setGeneratedPrompt(result.prompt);
@@ -554,6 +560,7 @@ export default function VisionaryPrompterPage() {
         prompt: finalPrompt,
         baseImageDataUri: baseImageUri,
         allowNsfw: allowNsfw,
+        developerDisableAllSafetyFilters: devFiltersDisabled,
       };
       const result: GenerateImageFromPromptOutput = await generateImageFromPrompt(input);
       setGeneratedImageDataUri(result.imageDataUri);
@@ -1289,5 +1296,3 @@ export default function VisionaryPrompterPage() {
     </div>
   );
 }
-
-    

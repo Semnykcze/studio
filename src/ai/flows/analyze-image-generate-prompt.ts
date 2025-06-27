@@ -26,6 +26,7 @@ const AnalyzeImageGeneratePromptInputSchema = z.object({
   promptStyle: z.enum(['detailed', 'creative', 'keywords', 'cinematic', 'photorealistic', 'abstract']).default('detailed').describe('The desired style of the generated prompt: detailed, creative, keywords, cinematic, photorealistic, or abstract.'),
   outputLanguage: z.string().default('en').describe("The desired language for the generated prompt (e.g., en, cs, es, fr). Use ISO 639-1 codes or full language names like 'Czech', 'Spanish'."),
   allowNsfw: z.boolean().default(false).describe('Whether to allow the generation of prompts that might lead to NSFW or sexually explicit content. If false, such content must be strictly avoided.'),
+  developerDisableAllSafetyFilters: z.boolean().optional().default(false).describe('If true, overrides all other settings to completely disable safety filters. For developer use.'),
 });
 export type AnalyzeImageGeneratePromptInput = z.infer<typeof AnalyzeImageGeneratePromptInputSchema>;
 
@@ -110,7 +111,14 @@ const analyzeImageGeneratePromptFlow = ai.defineFlow(
 
     let safetySettings: SafetySetting[] | undefined = undefined;
 
-    if (input.allowNsfw) {
+    if (input.developerDisableAllSafetyFilters) {
+        safetySettings = [
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        ];
+    } else if (input.allowNsfw) {
       safetySettings = [
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
